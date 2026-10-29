@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The World Is a Recording</title>
+  <meta name="description" content="A reality-recording puzzle game. Record the world, replay it, and reconcile memory with the present." />
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    canvas { display: block; cursor: crosshair; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    /* Visually hidden, but read by screen readers. */
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    /* On-screen play bar: shown only on touch screens, and only while playing. */
+    #touchbar { display: none; position: fixed; left: 0; right: 0; bottom: 0; flex-wrap: wrap; justify-content: center; gap: 6px;
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: rgba(4,6,10,0.8); }
+    #touchbar[hidden] { display: none; }
+    #touchbar-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+    #touchbar.collapsed { padding: 0; background: none; }
+    #touchbar.collapsed #touchbar-buttons { display: none; }
+    #touchbar-toggle { position: absolute; right: 6px; top: -30px; min-width: 56px; min-height: 28px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid #2a3b52; background: rgba(4,6,10,0.8); color: #c8d6e8; font: 600 11px ui-monospace, Menlo, Consolas, monospace; }
+    #touchbar button { flex: 0 0 auto; min-width: 60px; min-height: 40px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid #2a3b52; background: #14202e; color: #c8d6e8; font: 600 12px ui-monospace, Menlo, Consolas, monospace; }
+    #touchbar button:active { background: #22344a; }
+    @media (pointer: coarse) { #touchbar { display: flex; } }
+
+    /* Portrait phones are too narrow for the world to read; suggest turning the phone sideways. */
+    #rotate { display: none; position: fixed; inset: 0; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      padding: 16px; background: rgba(4,6,10,0.94); color: #c8d6e8; font: 16px ui-monospace, Menlo, Consolas, monospace; text-align: center; }
+    #rotate[data-dismissed] { display: none; }
+    #rotate button { min-height: 44px; padding: 0 18px; border-radius: 6px; border: 1px solid #2a3b52; background: #14202e; color: #c8d6e8; font: inherit; }
+    @media (pointer: coarse) and (orientation: portrait) { #rotate { display: flex; } }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="The World Is a Recording: game canvas"></canvas>
+  <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <div id="touchbar" role="toolbar" aria-label="Play controls" hidden>
+    <button type="button" id="touchbar-toggle" aria-expanded="true" aria-controls="touchbar-buttons">BAR ▾</button>
+    <div id="touchbar-buttons">
+    <button type="button" data-play="record" aria-label="Record or stop recording">REC</button>
+    <button type="button" data-play="play" aria-label="Replay selected recordings">PLAY</button>
+    <button type="button" data-play="stop" aria-label="Stop replays">STOP</button>
+    <button type="button" data-play="reset" aria-label="Reset the level, keeping recordings">RESET</button>
+    <button type="button" data-play="undo" aria-label="Undo the last dropped ball">UNDO</button>
+    <button type="button" data-play="deleteLast" aria-label="Delete the most recent recording">DEL</button>
+    <button type="button" data-play="wholeRoom" aria-label="Select the whole room to record">ALL</button>
+    <button type="button" data-play="clearRegion" aria-label="Clear the selected region">CLEAR</button>
+    <button type="button" data-play="speed" aria-label="Change simulation speed">SPEED</button>
+    <button type="button" data-play="hint" aria-label="Show or hide the hint">HINT</button>
+    <button type="button" data-play="menu" aria-label="Open the pause menu">MENU</button>
+    </div>
+  </div>
+  <div id="rotate" role="dialog" aria-label="Turn your phone sideways">
+    <p>Turn your phone sideways to see the world clearly.</p>
+    <button type="button" id="rotate-dismiss">Keep playing upright</button>
+  </div>
+  <noscript>This game needs JavaScript and a browser with Canvas 2D support.</noscript>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
