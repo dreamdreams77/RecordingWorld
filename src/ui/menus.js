@@ -21,6 +21,11 @@ const CONTROLS = [
   ['Sandbox: B · Enter · Del · F', 'Cycle item · place · remove · link source → sink  (Shift+F: link inverted)'],
 ];
 
+const TOUCH_CONTROLS = [
+  ['Left thumb', 'Move stick (appears where you touch)'], ['Right thumb', 'Drag to look · quick tap = click (pin the frame / place)'],
+  ['FRAME · REC · USE · PLAY · JUMP', 'The main actions (Q · R · E · T · Space)'], ['① button', 'Cycle the recording slot'], ['⟲', 'Rewind (F6)'], ['☰', 'Pause menu'],
+  ['⋯', 'More: STOP · MODE · REV · scrub ◂ ▸ · size − + · unpin ✕ · TAB · ALL · HINT · ×½ ×2 · ERASE · UNDO · RESET'], ['♪', 'Sing notes C D E F G A B (hold)'],
+];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
 export class Menus {
@@ -90,7 +95,7 @@ export class Menus {
         m.appendChild(this.btn('Archive', () => this.show('archive', true), 'recovered logs'));
         m.appendChild(this.btn('Settings', () => this.show('settings', true)));
         m.appendChild(this.btn('Controls', () => this.show('controls', true)));
-        const f = el('div', 'tiny', 'Press Enter to begin · Headphones recommended · mouse and keyboard · Chrome, Edge, Firefox'); f.style.marginTop = '18px'; m.appendChild(f);
+        const f = el('div', 'tiny', (document.body.classList.contains('touch') ? 'Tap Begin · Headphones recommended · landscape works best' : 'Press Enter to begin · Headphones recommended · mouse and keyboard · Chrome, Edge, Firefox')); f.style.marginTop = '18px'; m.appendChild(f);
         break;
       }
       case 'levels': {
@@ -108,7 +113,7 @@ export class Menus {
       case 'settings': this.renderSettings(m); break;
       case 'controls': {
         m.innerHTML = `<h1>Controls</h1><div class="sub">The Recollector instrument</div>`;
-        const k = el('div', 'keys'); for (const [a, b] of CONTROLS) k.innerHTML += `<b>${a}</b><span>${b}</span>`; m.appendChild(k);
+        const k = el('div', 'keys'); for (const [a, b] of (document.body.classList.contains('touch') ? TOUCH_CONTROLS : CONTROLS)) k.innerHTML += `<b>${a}</b><span>${b}</span>`; m.appendChild(k);
         const note = el('p', '', 'A recording captures the state of everything inside the pinned volume. Replays are physical: they press plates, carry weight, hold doors, spin machines, shine light and sing — and the world reconciles them with the present by fixed rules.'); note.style.marginTop = '18px'; m.appendChild(note);
         m.appendChild(this.btn('Back', () => this.back()));
         break;

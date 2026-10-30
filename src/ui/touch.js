@@ -45,6 +45,10 @@ export class TouchControls {
       this.button('−', () => { this.I.wheel += 1; }, 'a sm', 'size'), this.button('+', () => { this.I.wheel -= 1; }, 'a sm', 'size'),
       this.button('✕', () => { this.I.clicks.push(2); }, 'a sm', 'unpin'),
       this.button('TAB', () => ({ code: 'Tab' }), 'a sm', 'lens'),
+      this.button('ALL', () => ({ code: 'KeyU' }), 'a', 'U'), this.button('HINT', () => ({ code: 'KeyH' }), 'a', 'H'),
+      this.button('×½', () => ({ code: 'BracketLeft' }), 'a sm', '['), this.button('×2', () => ({ code: 'BracketRight' }), 'a sm', ']'),
+      this.button('ERASE', () => ({ code: 'Backspace' }), 'a', ''), this.button('UNDO', () => ({ code: 'Backspace', shift: true }), 'a', ''),
+      this.button('RESET', () => ({ code: 'KeyK', shift: true }), 'a', ''),
     );
     const nt = this.q('.tnotes');
     for (const [code, name] of NOTES) nt.append(this.button(name, () => ({ code, hold: true }), 'a note', ''));
@@ -61,14 +65,14 @@ export class TouchControls {
   button(label, fn, cls = '', sub = '') {
     const b = document.createElement('button');
     b.type = 'button'; b.className = `tb ${cls}`; b.innerHTML = `<span>${label}</span>${sub && sub.length <= 2 ? `<small>${sub}</small>` : ''}`;
-    let code = null;
+    let code = null, shift = false;
     b.addEventListener('pointerdown', (e) => {
       e.preventDefault(); e.stopPropagation(); b.setPointerCapture?.(e.pointerId); b.classList.add('on');
       this.enterFullscreen();
       const r = fn();
-      if (r?.code) { code = r.code; this.I.pressed.add(code); this.I.down.add(code); }
+      if (r?.code) { code = r.code; shift = !!r.shift; if (shift) this.I.down.add('ShiftLeft'); this.I.pressed.add(code); this.I.down.add(code); }
     });
-    const up = () => { b.classList.remove('on'); if (code) { this.I.down.delete(code); this.I.released.add(code); code = null; } };
+    const up = () => { b.classList.remove('on'); if (code) { this.I.down.delete(code); if (shift) this.I.down.delete('ShiftLeft'); this.I.released.add(code); code = null; } };
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
     b.addEventListener('contextmenu', (e) => e.preventDefault());
     return b;

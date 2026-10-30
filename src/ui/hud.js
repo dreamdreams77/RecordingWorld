@@ -2,6 +2,7 @@
 // oscilloscope timelines, the state-comparison inspector, feed/subtitles and the developer overlay.
 // Everything displayed is read from the live simulation — nothing here is decorative data.
 
+import { forTouch } from './keys.js';
 import { PLAYBACK_MODES } from '../sim/recording.js';
 
 const HUES = ['#ffa94d', '#62e0b4', '#ff6459', '#b7a0ff', '#d5f25c', '#ffc2d4'];
@@ -59,15 +60,17 @@ export class HUD {
     this.hint = section?.hint ?? '';
     f_.querySelector('.hint').textContent = '';
   }
-  showHint(on) { this.q('#folio .hint').textContent = on ? this.hint : ''; }
+  showHint(on) { this.q('#folio .hint').textContent = on ? forTouch(this.hint) : ''; }
 
   toast(text, kind = '', title = '', ms = 6000) {
+    text = forTouch(text);
     const t = el('div', `toast ${kind}`, (title ? `<b>${title}</b>` : '') + text);
     this.feed.appendChild(t);
     while (this.feed.children.length > 5) this.feed.firstChild.remove();
     setTimeout(() => t.remove(), ms);
   }
   say(text, who = 'THE ARCHIVIST', ms = 6500) {
+    text = forTouch(text);
     this.subtitle.innerHTML = `<span class="who">${who}</span>${text}`;
     this.subtitle.style.opacity = 1;
     clearTimeout(this.subT);
