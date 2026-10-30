@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 let failed = 0;
 const check = (name, ok, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${name} ${extra}`); if (!ok) failed++; };
-const shot = (n) => page.screenshot({ path: `${OUT}${n}.png` });
+const shot = (n) => page.screenshot({ path: `${OUT}${n}.png`, timeout: 120000 });
 
 // -- boot and title
 await page.goto(`${BASE}?quality=low&audio=1`);
