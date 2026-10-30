@@ -1,21 +1,20 @@
 {
   "name": "the-world-is-a-recording",
-  "version": "0.1.0",
-  "description": "A reality-recording puzzle game. Record the world, replay it, and reconcile memory with the present.",
+  "version": "1.0.0",
+  "description": "A first-person 3D game about manipulating the physical history of a world. Record volumes of reality, replay them as physical forces, and reconcile conflicting histories.",
   "type": "module",
   "private": true,
   "license": "MIT",
   "scripts": {
-    "start": "node tools/serve.mjs",
-    "test": "node --test \"tests/*.test.js\"",
-    "build": "node tools/build.mjs",
-    "e2e": "node tools/e2e.mjs"
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "node --test tests/*.test.js",
+    "e2e": "node e2e/smoke.mjs",
+    "bench": "node tests/bench.mjs"
   },
-  "engines": {
-    "node": ">=18"
-  },
-  "devDependencies": {
-    "@sparticuz/chromium": "153.0.0",
-    "puppeteer-core": "25.16.0"
-  }
+  "engines": { "node": ">=20" },
+  "dependencies": { "three": "0.186.1" },
+  "devDependencies": { "vite": "8.3.5" }
 }
