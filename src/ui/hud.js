@@ -76,6 +76,14 @@ export class HUD {
     clearTimeout(this.subT);
     this.subT = setTimeout(() => { this.subtitle.style.opacity = 0; }, ms);
   }
+  /** Chapter title card: numeral, name and designation over the first seconds of a chapter. */
+  titleCard(level) {
+    const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
+    const c = el('div', 'titlecard');
+    c.innerHTML = `<div class="tc-num">${level.index ? ROMAN[level.index] : '∞'}</div><div class="tc-rule"></div><div class="tc-ttl">${level.title}</div><div class="tc-sub">${level.subtitle ?? ''}</div>`;
+    this.layer.parentElement.appendChild(c);
+    setTimeout(() => c.remove(), 5200);
+  }
   flash(a = 0.25) { this.flashEl.style.transition = 'none'; this.flashEl.style.opacity = a; requestAnimationFrame(() => { this.flashEl.style.transition = 'opacity .6s'; this.flashEl.style.opacity = 0; }); }
   cinema(on) { document.body.classList.toggle('cinema', on); }
 

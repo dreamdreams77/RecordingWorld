@@ -4,12 +4,13 @@
 import * as THREE from 'three';
 import { MaterialLibrary } from './materials.js';
 import { EntityViews, LightPool } from './entities.js';
-import { BeamFX, ConflictFX, FrameFX, RecordingFX, SoundFieldFX, BurstFX } from './fx.js';
+import { BeamFX, ConflictFX, FrameFX, RecordingFX, SoundFieldFX, BurstFX, TrailFX } from './fx.js';
 import { levelBounds } from './scenery.js';
 import { PostFX } from './postfx.js';
 import { Props } from './props.js';
 import { makeSky, makeEnvironment } from './sky.js';
 import { buildScenery } from './scenery.js';
+import { dressArchitecture } from './dressing.js';
 import { QUALITY } from '../game/settings.js';
 import { EYE_HEIGHT } from '../sim/types.js';
 import { disposeTextures } from './textures.js';
@@ -70,6 +71,7 @@ export class GameRenderer {
     progressCb(0.35, 'Raising architecture'); await tick();
     this.sc = buildScenery(this.theme, { lib: this.lib, level, quality: this.q, theme: this.theme });
     this.scene.add(this.sc.group);
+    this.dress = dressArchitecture(level, this.lib, this.theme, this.q); this.scene.add(this.dress);
     this.sky = makeSky(this.theme); this.scene.add(this.sky);
     this.baseHorizon = this.sky.material.uniforms.uHorizon.value.clone(); this.baseZenith = this.sky.material.uniforms.uZenith.value.clone(); this.baseFrozen = this.sky.material.uniforms.uFrozen.value;
     this.emulsion = 0; this.sunrise = 0;
@@ -88,7 +90,7 @@ export class GameRenderer {
     this.lights = new LightPool(this.scene, this.q.lights);
     this.views = new EntityViews(this.scene, this.lib, this.lights, this.q);
     this.beams = new BeamFX(this.scene); this.conflicts = new ConflictFX(this.scene, this.lib.time);
-    this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene); this.burstFx = new BurstFX(this.scene);
+    this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene); this.burstFx = new BurstFX(this.scene); this.trails = new TrailFX(this.scene);
     this.props = new Props(this.scene, this.lib, this.theme, this.level);
     this.soundField = level.sound ? new SoundFieldFX(this.scene, levelBounds(level)) : null;
     if (this.q.reflections) this.setupReflection();
@@ -218,6 +220,7 @@ export class GameRenderer {
     this.props.update(this.clock, fs.found ?? new Set());
     this.soundField?.update(world, this.clock);
     this.burstFx?.update(dt, this.camera);
+    this.trails?.update(world);
     this.lights.flush(cam.position);
     // post parameters: interference grows with conflicts and lost coherence
     let incoh = 0; for (const pb of world.playbacks) if (pb?.active) incoh = Math.max(incoh, 1 - pb.coherence);

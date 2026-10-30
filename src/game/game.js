@@ -124,6 +124,7 @@ export class Game {
     this.input.lock();
     this.hud.layer.style.display = '';
     this.processDirector();
+    if (!snapshot) this.hud.titleCard(level);
     if (!snapshot && this.director.sectionIndex <= 0) this.hud.say(level.narrative?.intro ?? this.director.section?.intro ?? '', 'THE ARCHIVIST', 8000);
     this.acc = 0; this.last = performance.now();
   }

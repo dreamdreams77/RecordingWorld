@@ -265,3 +265,36 @@ export class BurstFX {
     if (live) { this.points.geometry.attributes.position.needsUpdate = true; this.points.geometry.attributes.color.needsUpdate = true; }
   }
 }
+
+/** A fading ribbon behind each replaying player echo: where that history has just been. */
+export class TrailFX {
+  constructor(scene) {
+    this.N = 70; this.lines = [];
+    for (let s = 0; s < 6; s++) {
+      const g = new THREE.BufferGeometry();
+      const pos = new Float32Array(this.N * 3), col = new Float32Array(this.N * 3);
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const line = new THREE.Line(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      line.frustumCulled = false; line.visible = false; line.renderOrder = 5; scene.add(line);
+      const dots = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.2, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      dots.frustumCulled = false; dots.renderOrder = 5; line.add(dots);
+      this.lines.push({ line, pos, col, n: 0, last: null, hue: new THREE.Color(SLOT_HUES[s]), tick: 0 });
+    }
+  }
+  update(world) {
+    const seen = new Set();
+    for (const L of world.aliveList) {
+      if (L.id !== 'player' || L.layer <= 0) continue;
+      const t = this.lines[(L.layer - 1) % 6]; seen.add(t);
+      const a = L.type.anchor(L.def, L.st), y = a[1] - 0.6;
+      if (t.last && Math.hypot(a[0] - t.last[0], a[2] - t.last[2], y - t.last[1]) > 4) t.n = 0; // the head jumped (scrub / restart): drop the old ribbon
+      if (!t.last || Math.hypot(a[0] - t.last[0], a[2] - t.last[2]) > 0.08 || t.tick++ % 4 === 0) {
+        if (t.n < this.N) t.n++; else t.pos.copyWithin(0, 3);
+        const k = (t.n - 1) * 3; t.pos[k] = a[0]; t.pos[k + 1] = y; t.pos[k + 2] = a[2]; t.last = [a[0], y, a[2]];
+      }
+      for (let i = 0; i < t.n; i++) { const f = ((i + 1) / t.n) ** 0.6 * 1.3; t.col[i * 3] = t.hue.r * f; t.col[i * 3 + 1] = t.hue.g * f; t.col[i * 3 + 2] = t.hue.b * f; }
+      t.line.geometry.setDrawRange(0, t.n); t.line.geometry.attributes.position.needsUpdate = true; t.line.geometry.attributes.color.needsUpdate = true; t.line.visible = t.n > 1;
+    }
+    for (const t of this.lines) if (!seen.has(t)) { t.n = 0; t.last = null; t.line.visible = false; }
+  }
+}
