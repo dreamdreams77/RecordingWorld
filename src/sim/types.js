@@ -218,7 +218,7 @@ reg('emitter', { // a tuned sound source (7 notes)
 reg('resonator', { // hears notes; single note, chord (all at once) or melody (in order)
   ch: ['charge', 'idx', 'timer', 'heard', 'pm'], keyCh: 0, size: () => [0.9, 0.9, 0.9],
   colliders(d, st, push) { push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], 0.9, 0.9, 0.9), kind: 'wall', snd: SND.crate, beam: false }); },
-  out: (d, st) => (st[0] >= 1 ? 1 : 0),
+  out: (d, st) => (d.seq ? (st[0] >= 1 ? 1 : 0) : (st[0] >= 1 || st[2] > 0 ? 1 : 0)),
   post(L, w) {
     const d = L.def, st = L.st, mask = st[3] | 0;
     const has = (n) => (mask >> n) & 1;
@@ -235,6 +235,7 @@ reg('resonator', { // hears notes; single note, chord (all at once) or melody (i
     const ok = want.every(has);
     const up = 1 / (d.charge ?? 40), down = 1 / (d.decay ?? 90);
     st[0] = clamp(st[0] + (ok ? up : -down), 0, 1);
+    if (st[0] >= 1) st[2] = d.hold ?? 0; else if (st[2] > 0) st[2] -= 1; // afterglow after the sound stops
   },
 });
 

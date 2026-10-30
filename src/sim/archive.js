@@ -8,12 +8,12 @@ const cache = new Map();
 
 /**
  * @param level  level definition
- * @param arch   { id, name, volume:{x0..z1}, ticks, set?:{id:{channel:value}}, script?:[{t,id,set:{channel:value}}] }
+ * @param arch   { id, name, keep:[past-era entity ids to include], volume:{x0..z1}, ticks, set?:{id:{channel:value}}, script?:[{t,id,set:{channel:value}}] }
  */
 export function generateArchive(level, arch) {
   const key = `${level.id}:${arch.id}`;
   if (cache.has(key)) return cache.get(key);
-  const w = new World(level, { era: 'past', noPlayer: true, caps: { maxTicks: arch.ticks + 4, slots: 1 } });
+  const w = new World(level, { era: 'past', noPlayer: true, keep: arch.keep ?? [], caps: { maxTicks: arch.ticks + 4, slots: 1 } });
   const setState = (id, ch, v) => {
     const L = w.byId.get(id);
     if (!L) throw new Error(`archive ${arch.id}: unknown entity ${id}`);

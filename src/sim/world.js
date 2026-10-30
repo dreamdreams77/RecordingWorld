@@ -55,6 +55,7 @@ export class World {
 
     for (const def of level.entities ?? []) {
       if (def.era && def.era !== this.era) continue;
+      if (def.era === 'past' && opts.keep && !opts.keep.includes(def.id)) continue;
       this.addEntity(this.era === 'past' && def.past ? { ...def, ...def.past } : def);
     }
     if (!opts.noPlayer && level.spawn) {
@@ -291,7 +292,16 @@ export class World {
       if (!isPlayer) st[4] = Math.max(st[4] - GRAVITY * this.dt, -MAX_FALL);
       const r = this.moveBody(L, st[3] * this.dt, st[4] * this.dt, st[5] * this.dt);
       if (isPlayer) st[9] = r.landed ? 1 : 0;
-      else { st[3] = st[5] = 0; }
+      else {
+        st[3] = st[5] = 0;
+        if (r.landed) { // centre-of-mass rule: a crate whose centre is past its support's edge slides off and falls
+          const sp = this.findSupport(L);
+          if (sp) {
+            const ex = st[0] < sp.b.x0 ? -1 : st[0] > sp.b.x1 ? 1 : 0, ez = st[2] < sp.b.z0 ? -1 : st[2] > sp.b.z1 ? 1 : 0;
+            if (ex || ez) this.moveBody(L, ex * 0.06, 0, ez * 0.06);
+          }
+        }
+      }
       // 3. temporal collisions with echoes / moving architecture
       this.depenetrate(L);
       if (st[1] < killY) {
@@ -308,7 +318,7 @@ export class World {
       const prev = this.prevBoxes.get(s.key) ?? s.b;
       if (Math.abs(prev.y1 - bb.y0) > 0.06) continue;
       const ox = Math.min(prev.x1, bb.x1) - Math.max(prev.x0, bb.x0), oz = Math.min(prev.z1, bb.z1) - Math.max(prev.z0, bb.z0);
-      if (ox > 0.02 && oz > 0.02 && ox * oz > bv) { bv = ox * oz; best = s; }
+      if (ox > 1e-4 && oz > 1e-4 && ox * oz > bv) { bv = ox * oz; best = s; }
     }
     return best;
   }
@@ -328,6 +338,17 @@ export class World {
           this.moveBody(s.dyn, dd[0], dd[1], dd[2], depth + 1);
           bb = bodyBox(L);
           if (!overlaps(bb, s.b)) continue;
+        }
+        if (axis !== 1 && L === this.player && st[9] > 0.5) { // auto step-up for low ledges and stairs
+          const rise = s.b.y1 - bb.y0;
+          if (rise > 0.01 && rise <= 0.62) {
+            const y0 = st[1]; st[1] += rise + 1e-3;
+            const nb = bodyBox(L);
+            let free = true;
+            for (const o of this.solids) if (o.block && o.item !== L && overlaps(nb, o.b)) { free = false; break; }
+            if (free) { st[4] = Math.max(st[4], 0); continue; }
+            st[1] = y0;
+          }
         }
         const lo = ['x0', 'y0', 'z0'][axis], hi = ['x1', 'y1', 'z1'][axis];
         if (d > 0) st[axis] = s.b[lo] - h[axis] - 1e-4; else st[axis] = s.b[hi] + h[axis] + 1e-4;
@@ -406,9 +427,9 @@ export class World {
     const drain = new Float32Array(this.playbacks.length);
     for (const c of C) {
       if (c.kind === 'state' || c.kind === 'projection') continue;
-      const w = Math.min(1, c.vol ?? 0.6);
-      if (c.layerA > 0) drain[c.layerA - 1] += 0.002 + 0.008 * w;
-      if (c.layerB > 0) drain[c.layerB - 1] += 0.002 + 0.008 * w;
+      const w = Math.min(1, (c.vol ?? 3.6) / 6);
+      if (c.layerA > 0) drain[c.layerA - 1] += 0.0006 + 0.001 * w;
+      if (c.layerB > 0) drain[c.layerB - 1] += 0.0006 + 0.001 * w;
       if (c.layerA === undefined && c.layer > 0) drain[c.layer - 1] += 0.004;
     }
     this.playbacks.forEach((pb, i) => {
@@ -467,6 +488,12 @@ export class World {
     else pb.start(rate ?? pb.rate ?? 1);
     this.emit('play', { slot });
     return true;
+  }
+  /** Start every stored recording on the same tick (so histories stay in the phase they were recorded in). */
+  playAll(opts = {}) {
+    let n = 0;
+    this.recordings.forEach((r, i) => { if (r && this.play(i, opts)) { const pb = this.playbacks[i]; if (pb.active) { pb.head = pb.rate < 0 ? r.length - 1 : 0; pb.playing = true; n++; } } });
+    return n;
   }
   pause(slot) { const pb = this.playbacks[slot]; if (pb && pb.active) pb.playing = false; }
   togglePlay(slot) {
