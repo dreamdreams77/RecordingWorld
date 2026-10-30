@@ -42,7 +42,7 @@ const walkTo = (x, z) => page.evaluate(([x, z]) => {
     g.yaw = Math.atan2(-dx, -dz); g.input.down.add('KeyW'); g.playFrame(1 / 60); g.input.endFrame(); g.input.down.delete('KeyW');
   }
 }, [x, z]);
-const state = (js) => page.evaluate(js);
+const state = (js, arg) => page.evaluate(js, arg);
 
 // -- real input path: frame, pin, record, play
 await walkTo(-5, -12);
