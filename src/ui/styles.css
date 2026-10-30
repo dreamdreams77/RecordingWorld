@@ -138,7 +138,16 @@ body.cinema .hudlayer { opacity: 0; }
 #touch .tdrawer { position: absolute; right: calc(10px + env(safe-area-inset-right)); bottom: calc(190px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, auto); gap: 8px; }
 #touch .tnotes { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); display: flex; gap: 6px; }
 #touch .tnotes .tb { min-width: 42px; height: 52px; }
-@media (orientation: portrait) { #touch .tbar { bottom: calc(190px + env(safe-area-inset-bottom)); } #touch .tcluster { bottom: calc(190px + env(safe-area-inset-bottom)); } #touch .tdrawer { bottom: calc(380px + env(safe-area-inset-bottom)); } #touch .tnotes { bottom: calc(270px + env(safe-area-inset-bottom)); } }
+@media (orientation: portrait) {
+  #touch .tbar { flex-direction: column-reverse; bottom: calc(190px + env(safe-area-inset-bottom)); gap: 6px; }
+  #touch .tcluster { bottom: calc(190px + env(safe-area-inset-bottom)); gap: 6px; }
+  #touch .tb { min-width: 52px; height: 48px; padding: 0 4px; font-size: 11px; }
+  #touch .tb.sm { min-width: 44px; height: 40px; }
+  #touch .tb.big { min-width: 70px; height: 54px; }
+  #touch .tdrawer { bottom: calc(318px + env(safe-area-inset-bottom)); gap: 6px; }
+  #touch .tnotes { bottom: calc(460px + env(safe-area-inset-bottom)); }
+  #touch .tnotes .tb { min-width: 38px; }
+}
 body.touch #legend, body.touch #range { display: none; }
 body.touch .panel { font-size: 12px; }
 body.touch #ticker { display: none; }
