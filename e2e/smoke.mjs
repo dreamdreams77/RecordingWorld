@@ -88,10 +88,12 @@ const snap = await state(() => !!localStorage.getItem('twiar.snapshot.v1'));
 check('quick-save stored a snapshot', snap);
 await state(async () => { await window.__game.toTitle(); });
 await page.waitForFunction(() => window.__game.state === 'title', null, { timeout: 90000 });
+await state(() => { window.__game.testHold = true; }); // freeze the sim so real-time frames cannot advance it before we read the hash
 await page.click('text=Continue');
 await page.waitForFunction(() => window.__game.state === 'play', null, { timeout: 120000 });
 const after = await state(() => ({ h: window.__game.world.hash(), t: window.__game.world.tick }));
-check('load restores the exact simulation state', before.h === after.h && before.t === after.t, `${before.h} vs ${after.h}`);
+check('load restores the exact simulation state', before.h === after.h && before.t === after.t, `${before.h} vs ${after.h} @ ${before.t}/${after.t}`);
+await state(() => { window.__game.testHold = false; });
 
 
 // -- recovery: rollback of recordings, rewind, section reset (through the real key path)

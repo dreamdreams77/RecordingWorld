@@ -438,7 +438,7 @@ export class Game {
     const mx = (I.held('KeyD') ? 1 : 0) - (I.held('KeyA') ? 1 : 0), mz = (I.held('KeyW') ? 1 : 0) - (I.held('KeyS') ? 1 : 0);
     const tone = NOTE_KEYS.findIndex((k) => I.held(k)) + 1;
     const jump = I.held('Space');
-    while (this.acc >= 1 / 60 && steps < 6) {
+    while (!this.testHold && this.acc >= 1 / 60 && steps < 6) {
       this.prev.set(w.player.st);
       w.step({ mx, mz, jump, interact: this.pendingInteract, tone, yaw: this.yaw, pitch: this.pitch, slot: this.selected });
       this.pendingInteract = false;
