@@ -19,7 +19,8 @@ export class Director {
     this.discoveries = (level.discoveries ?? []).map((d) => ({ ...d }));
     this.experiments = level.experiments ?? [];
     this.tapes = level.tapes ?? [];
-    this.exitBox = level.exit ? bx(level.exit.box) : null;
+    this.exitBoxes = level.exit ? [bx(level.exit.box)] : (level.exits ?? []).map((e) => bx(e.box));
+    this.exitBox = this.exitBoxes[0] ?? null;
     this.stats = { recordings: 0, ticks: 0 };
     this.update(); // enters the first section
   }
@@ -44,7 +45,7 @@ export class Director {
       if (!this.done.has(x.id) && (w.R.get(x.signal) ?? 0) > 0.5) { this.done.add(x.id); this.say('experiment', { experiment: x }); }
     }
     if (!this.completed && this.level.finale && (w.R.get(this.level.finale.signal) ?? 0) > 0.5) { this.completed = true; this.say('complete', { finale: true }); }
-    if (!this.completed && this.exitBox && containsPoint(this.exitBox, p[0], p[1], p[2])) { this.completed = true; this.say('complete', {}); }
+    if (!this.completed) { const xi = this.exitBoxes.findIndex((b) => containsPoint(b, p[0], p[1], p[2])); if (xi >= 0) { this.completed = true; this.exitIndex = xi; this.say('complete', { exit: this.level.exits?.[xi]?.id }); } }
   }
   enterSection(i) {
     this.sectionIndex = i;
@@ -57,7 +58,27 @@ export class Director {
       const gained = (s.caps.modes ?? []).filter((m) => !before.modes?.includes?.(m));
       this.say('caps', { caps: s.caps, section: s });
     }
+    this.applyEvents(`section:${s.id}`);
     this.say('section', { section: s, index: i });
+  }
+  /**
+   * Physical story events: architecture that moves and figures that appear when a trigger fires.
+   * `level.events: [{ on:'section:b', set:{ id:{ channel:value } }, actors:['id'], say:'…' }]`
+   */
+  applyEvents(trigger) {
+    for (const ev of this.level.events ?? []) {
+      if (ev.on !== trigger) continue;
+      for (const [id, chans] of Object.entries(ev.set ?? {})) {
+        const L = this.w.byId.get(id); if (!L) continue;
+        for (const [ch, v] of Object.entries(chans)) { const i = L.type.I[ch]; if (i !== undefined) L.st[i] = v; }
+      }
+      for (const id of ev.actors ?? []) {
+        const L = this.w.byId.get(id); if (!L) continue;
+        L.st[7] = 1; L.st[6] = 0;
+        const p = L.def.path?.[0]; if (p) { L.st[0] = p[1]; L.st[2] = p[2]; }
+      }
+      if (ev.say) this.say('event', { text: ev.say, who: ev.who });
+    }
   }
   /** Nearest tape pedestal within reach, or null. */
   nearbyTape() {

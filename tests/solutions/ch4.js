@@ -1,4 +1,6 @@
+export const variants = [{ name: 'time-dials', carillon: 'time' }, { name: 'sing-it-yourself', carillon: 'manual' }];
 export default function solve(bot, dir, opts = {}) {
+  const variant = opts.variant?.carillon ?? 'time';
   const w = bot.w;
   const vol = (x, y, z, hx = 4.5, hy = 3, hz = 4.5) => bot.vol(x, y, z, hx, hy, hz);
   // --- A: record singing next to the glass, then loop it
@@ -57,5 +59,44 @@ export default function solve(bot, dir, opts = {}) {
   bot.walkTo(0, -104, { tone: 6 });
   bot.walkTo(0, -110.5);
   bot.walkTo(0, -114);
-  bot.walkTo(0, -120);
+  bot.walkTo(0, -116);
+  // --- D1: retrograde at speed
+  if (variant === 'time') {
+    bot.walkTo(-3.5, -114.5);
+    w.startRecording(0, vol(-6.3, 1.5, -118, 1.7, 3, 3), 'carillon');
+    bot.press('go1'); bot.step(340); w.stopRecording();
+    bot.walkTo(0, -120);
+    w.play(0, { mode: 'once', rate: -2 });
+    bot.step(240);
+    w.stop(0);
+  } else {
+    bot.walkTo(2, -120);
+    for (const n of [4, 6, 5, 3, 1]) { bot.sing(n, 0.25); bot.step(13); }
+    bot.step(10);
+  }
+  if (bot.signal('lock1') < 0.5) throw new Error('lock1 did not open');
+  bot.walkTo(0, -127);
+  bot.walkTo(0, -129);
+  bot.step(80);
+  bot.walkTo(0, -131);
+  // --- D2: slow it down
+  if (variant === 'time') {
+    bot.walkTo(-3.5, -132.5);
+    w.startRecording(0, vol(-6.3, 1.5, -136, 1.7, 3, 3), 'carillon 2');
+    bot.press('go2'); bot.step(100); w.stopRecording();
+    bot.walkTo(0, -137);
+    w.play(0, { mode: 'once', rate: 0.25 });
+    bot.step(360);
+    w.stop(0);
+  } else {
+    bot.walkTo(2, -138);
+    for (const n of [2, 5, 3, 1, 6]) { bot.sing(n, 0.3); bot.step(15); }
+    bot.step(10);
+  }
+  if (bot.signal('lock2') < 0.5) throw new Error('lock2 did not open');
+  bot.walkTo(0, -145);
+  bot.walkTo(0, -147);
+  bot.step(80);
+  bot.walkTo(0, -152);
+  bot.walkTo(0, -160);
 }

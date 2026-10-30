@@ -51,12 +51,13 @@ reg('slider', {
   colliders(d, st, push) {
     const s = st[0], z = d.size;
     push({ b: boxC(lerp(d.pos[0], d.to[0], s), lerp(d.pos[1], d.to[1], s), lerp(d.pos[2], d.to[2], s), z[0], z[1], z[2]),
-      kind: 'slider', aperture: (d.mode ?? 'door') === 'door', open: s >= DOOR_OPEN_THRESHOLD, snd: SND.door, beam: d.glass ? false : true });
+      kind: d.hazard ? 'hazard' : 'slider', hazard: !!d.hazard, aperture: !d.hazard && (d.mode ?? 'door') === 'door', open: s >= DOOR_OPEN_THRESHOLD, snd: SND.door, beam: d.glass ? false : true });
   },
   step(L, w) {
     const d = L.def, st = L.st;
     const p = w.inputOf(d);
-    const target = p === null ? st[1] : (p ? 1 : 0);
+    const pin = w.pins[d.id];
+    const target = pin !== undefined ? pin : p === null ? st[1] : (p ? 1 : 0); // a canonised pin outranks any wiring
     const sp = (d.speed ?? 0.8) * w.dt;
     st[0] = clamp(st[0] + clamp(target - st[0], -sp, sp), 0, 1);
   },
@@ -216,18 +217,28 @@ reg('emitter', { // a tuned sound source (7 notes)
 });
 
 reg('resonator', { // hears notes; single note, chord (all at once) or melody (in order)
-  ch: ['charge', 'idx', 'timer', 'heard', 'pm'], keyCh: 0, size: () => [0.9, 0.9, 0.9],
+  ch: ['charge', 'idx', 'timer', 'heard', 'pm', 'gap'], keyCh: 0, size: () => [0.9, 0.9, 0.9],
   colliders(d, st, push) { push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], 0.9, 0.9, 0.9), kind: 'wall', snd: SND.crate, beam: false }); },
   out: (d, st) => (d.seq ? (st[0] >= 1 ? 1 : 0) : (st[0] >= 1 || st[2] > 0 ? 1 : 0)),
   post(L, w) {
     const d = L.def, st = L.st, mask = st[3] | 0;
     const has = (n) => (mask >> n) & 1;
     if (d.seq) {
-      const hold = d.hold ?? 600;
-      if (st[0] >= 1) { st[2] -= 1; if (st[2] <= 0) { st[0] = 0; st[1] = 0; } return; }
+      const hold = d.hold ?? 600, win = d.window ?? 200, len = d.seq.length;
+      st[5] += 1; // ticks since the last matched note
+      if (st[0] >= 1) { st[2] -= 1; if (st[2] <= 0) { st[0] = 0; st[1] = 0; } st[4] = mask; return; }
       if (st[1] > 0) { st[2] -= 1; if (st[2] <= 0) st[1] = 0; }
-      const want = d.seq[st[1] | 0];
-      if (has(want) && !((st[4] | 0) >> want & 1)) { st[1] += 1; st[2] = d.window ?? 200; if (st[1] >= d.seq.length) { st[0] = 1; st[2] = hold; } }
+      const prev = st[4] | 0;
+      for (let n = 1; n <= 7; n++) {
+        if (!has(n) || ((prev >> n) & 1)) continue; // only note onsets count
+        const idx = st[1] | 0;
+        if (n === d.seq[idx]) {
+          if (idx > 0 && d.tempo && (st[5] < d.tempo[0] || st[5] > d.tempo[1])) { st[1] = n === d.seq[0] ? 1 : 0; } // right note, wrong tempo
+          else { st[1] = idx + 1; if (st[1] >= len) { st[0] = 1; st[2] = hold; } }
+          if (st[0] < 1) st[2] = win;
+          st[5] = 0;
+        } else if (n === d.seq[0]) { st[1] = 1; st[2] = win; st[5] = 0; }
+      }
       st[4] = mask;
       return;
     }
@@ -237,6 +248,129 @@ reg('resonator', { // hears notes; single note, chord (all at once) or melody (i
     st[0] = clamp(st[0] + (ok ? up : -down), 0, 1);
     if (st[0] >= 1) st[2] = d.hold ?? 0; else if (st[2] > 0) st[2] -= 1; // afterglow after the sound stops
   },
+});
+
+
+// ---------------------------------------------------------------- hazards and degrading matter
+const loadedBy = (w, top, x0, x1, z0, z1) => {
+  for (const b of w.bodyBoxes) {
+    if (Math.abs(b.b.y0 - top) < 0.14 && b.b.x0 < x1 && b.b.x1 > x0 && b.b.z0 < z1 && b.b.z1 > z0) return true;
+  }
+  return false;
+};
+
+reg('crumble', { // wears out under load; history does not wear (an echo of it keeps the integrity it was recorded with)
+  ch: ['integ', 'load'], capture: 'overlap', keyCh: 0,
+  init: () => [1, 0],
+  size: (d) => v3(d.size, [4, 0.5, 4]),
+  colliders(d, st, push) {
+    if (st[0] <= 0.02) return;
+    const s = v3(d.size, [4, 0.5, 4]);
+    push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], s[0], s[1], s[2]), kind: 'slider', snd: SND.wall, beam: true });
+  },
+  step(L, w) {
+    const d = L.def, s = v3(d.size, [4, 0.5, 4]), p = d.pos;
+    const on = L.st[0] > 0.02 && loadedBy(w, p[1] + s[1] / 2, p[0] - s[0] / 2, p[0] + s[0] / 2, p[2] - s[2] / 2, p[2] + s[2] / 2);
+    L.st[1] = on ? 1 : 0;
+    if (on) L.st[0] = Math.max(0, L.st[0] - 1 / (d.life ?? 60));
+    else if (d.regen && L.st[0] > 0.02) L.st[0] = Math.min(1, L.st[0] + d.regen);
+  },
+});
+
+reg('descender', { // a one-way platform: sinks under load; rises only when powered (or never)
+  ch: ['s'], capture: 'overlap', keyCh: 0,
+  init: (d) => [d.s0 ?? 0],
+  anchor: (d, st) => [lerp(d.pos[0], d.to[0], st[0]), lerp(d.pos[1], d.to[1], st[0]), lerp(d.pos[2], d.to[2], st[0])],
+  colliders(d, st, push) {
+    const z = d.size;
+    push({ b: boxC(lerp(d.pos[0], d.to[0], st[0]), lerp(d.pos[1], d.to[1], st[0]), lerp(d.pos[2], d.to[2], st[0]), z[0], z[1], z[2]), kind: 'slider', snd: SND.wall, beam: true });
+  },
+  step(L, w) {
+    const d = L.def, st = L.st, z = d.size;
+    const y = lerp(d.pos[1], d.to[1], st[0]), x = lerp(d.pos[0], d.to[0], st[0]), zc = lerp(d.pos[2], d.to[2], st[0]);
+    const pin = w.pins[d.id];
+    if (pin !== undefined) { st[0] = clamp(st[0] + clamp(pin - st[0], -(d.speed ?? 0.12) * w.dt, (d.speed ?? 0.12) * w.dt), 0, 1); return; }
+    const powered = d.in?.length ? w.inputOf(d) : false;
+    const loaded = loadedBy(w, y + z[1] / 2, x - z[0] / 2, x + z[0] / 2, zc - z[2] / 2, zc + z[2] / 2);
+    if (powered) st[0] = Math.max(0, st[0] - (d.lift ?? 0.12) * w.dt);
+    else if (loaded) st[0] = Math.min(1, st[0] + (d.speed ?? 0.12) * w.dt);
+  },
+  out: (d, st) => (st[0] >= 0.98 ? 1 : 0),
+});
+
+// ---------------------------------------------------------------- music
+reg('carillon', { // a mechanism that plays a melody while powered
+  ch: ['on', 'note', 'idx', 't'], keyCh: 0, size: () => [1, 1.4, 1],
+  colliders(d, st, push) { push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], 0.9, 1.3, 0.9), kind: 'wall', snd: SND.crate, beam: false }); },
+  step(L, w) {
+    const d = L.def, st = L.st, p = w.inputOf(d), on = p === null ? true : p;
+    st[0] = on ? 1 : 0;
+    if (!on) { st[1] = 0; st[2] = 0; st[3] = 0; return; }
+    const mel = d.melody, [n, dur] = mel[st[2] | 0];
+    st[3] += 1;
+    st[1] = st[3] < dur * 0.7 ? n : 0;
+    if (st[3] >= dur) { st[3] = 0; st[2] += 1; if (st[2] >= mel.length) { if (d.once) { st[2] = mel.length - 1; st[3] = dur; st[1] = 0; } else st[2] = 0; } }
+  },
+  out: (d, st) => st[0],
+});
+
+// ---------------------------------------------------------------- optics
+reg('prism', { // splits a beam left/right; a white beam disperses into red (left), green (straight), blue (right)
+  ch: [], size: () => [0.9, 1.0, 0.9], capture: 'center',
+  colliders(d, st, push) { push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], 0.9, 1.0, 0.9), kind: 'wall', snd: SND.crate, beam: false, prism: true }); },
+});
+reg('filter', { // a gel pane: white becomes its colour; its own colour passes; other colours are stopped
+  ch: [], size: (d) => v3(d.size, [0.15, 2.4, 2.4]), capture: 'overlap',
+  colliders(d, st, push) { const s = v3(d.size, [0.15, 2.4, 2.4]); push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], s[0], s[1], s[2]), kind: 'wall', snd: SND.glass, beam: false, filter: d.hue ?? 1 }); },
+});
+
+// ---------------------------------------------------------------- people
+reg('actor', { // a scripted residual figure: walks a path, hums a motif; recordable like anything else
+  ch: ['x', 'y', 'z', 'yaw', 'tone', 'pose', 't', 'active'], keyCh: 7, size: () => [0.6, 1.8, 0.6],
+  init: (d) => [d.pos[0], d.pos[1] + 0.9, d.pos[2], d.yaw ?? 0, 0, 0, 0, d.startOn ? 0 : 1],
+  anchor: (d, st) => [st[0], st[1], st[2]],
+  colliders() {},
+  step(L) {
+    const d = L.def, st = L.st;
+    if (st[7] < 0.5) return;
+    st[6] += 1;
+    const path = d.path;
+    if (path?.length) {
+      const end = path[path.length - 1][0];
+      let t = st[6];
+      if (t > end) { if (d.loop) { st[6] = 1; t = 1; } else t = end; }
+      if (d.hideAt && st[6] >= d.hideAt) { st[7] = 0; st[4] = 0; return; }
+      let i = 0; while (i < path.length - 2 && path[i + 1][0] < t) i++;
+      const a = path[i], b = path[Math.min(i + 1, path.length - 1)], k = b[0] === a[0] ? 1 : clamp((t - a[0]) / (b[0] - a[0]), 0, 1);
+      const nx = lerp(a[1], b[1], k), nz = lerp(a[2], b[2], k);
+      const mv = Math.hypot(nx - st[0], nz - st[2]);
+      if (mv > 1e-4) st[3] = Math.atan2(-(nx - st[0]), -(nz - st[2]));
+      st[0] = nx; st[2] = nz; st[1] = d.pos[1] + 0.9; st[5] = mv > 0.004 ? 1 : 0;
+    }
+    st[4] = 0;
+    for (const [t0, t1, n] of d.tones ?? []) if (st[6] >= t0 && st[6] < t1) st[4] = n;
+  },
+});
+
+// ---------------------------------------------------------------- consequence
+reg('ledger', { // where a history is entered into the record as true (see World.canonize)
+  ch: ['used'], keyCh: 0, size: () => [1, 1.2, 1],
+  colliders(d, st, push) { push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], 0.9, 1.2, 0.9), kind: 'wall', snd: SND.crate, beam: true }); },
+  out: (d, st) => st[0],
+  interact(L, w, input) {
+    if (L.st[0] > 0.5) return null;
+    const slot = input?.slot ?? -1;
+    if (slot < 0 || !w.recordings[slot]) return 'ledger-empty';
+    if (L.def.accepts) { // this ledger only recognises one particular history
+      const rec = w.recordings[slot], tr = rec.tracks.get(L.def.accepts), st = new Float64Array(tr?.nch ?? 0);
+      if (!tr || !tr.sample(rec.length - 1, st) || st[0] < 0.9) return 'ledger-refuse';
+    }
+    const r = w.canonize(slot, L.id);
+    if (!r) return 'ledger-empty';
+    L.st[0] = 1;
+    return 'canon';
+  },
+  interactBox: (d) => boxC(d.pos[0], d.pos[1], d.pos[2], 1.3, 1.6, 1.3),
 });
 
 export function typeOf(def) {

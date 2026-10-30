@@ -26,8 +26,19 @@ E.push({ id: 'op', type: 'player', era: 'past', pos: [0, 3.9, -47], yaw: 0 });
 
 // ---- C: two histories of a bridge, overlapping at the middle.
 E.push(...room('c', { zS: -62, zN: -100, floorTo: false, endWall: false }));
-E.push(floor('c_near', [-10, -3, -72], [10, 0, -62]), floor('c_far', [-10, -3, -100], [10, 0, -90]), wall('c_cap', [-10, 0, -101], [10, 9, -100]));
+E.push(floor('c_near', [-10, -3, -72], [10, 0, -62]), floor('c_far', [-10, -3, -100], [10, 0, -90]));
 E.push(pastSlider('deckX', [0, 13.75, -77.25], [0, -0.25, -77.25], [4, 0.5, 10.5]), pastSlider('deckY', [0, 13.75, -84.75], [0, -0.25, -84.75], [4, 0.5, 10.5]));
+
+// ---- D: the fork. Two incompatible histories of one chasm; a ledger decides which becomes true.
+E.push(...room('d', { zS: -100, zN: -164, floorTo: false, endWall: false }));
+E.push(floor('d_near', [-10, -3, -108], [10, 0, -100]), floor('d_far', [-10, -3, -164], [10, 0, -126]));
+E.push(wall('fork_div', [-0.5, 0, -164], [0.5, 9, -126]));
+E.push({ id: 'forkE', type: 'slider', mode: 'matter', pos: [4, -6.25, -117], to: [4, -0.25, -117], size: [4, 0.5, 18], speed: 0.5, skin: 'bridge' });
+E.push({ id: 'forkW', type: 'slider', mode: 'matter', pos: [-4, -6.25, -117], to: [-4, -0.25, -117], size: [4, 0.5, 18], speed: 0.5, skin: 'bridge' });
+E.push({ id: 'ledE', type: 'ledger', pos: [5, 0.6, -134], accepts: 'forkE' }, { id: 'ledW', type: 'ledger', pos: [-5, 0.6, -134], accepts: 'forkW' });
+E.push(wall('fk_endA', [-10, 0, -150], [-7, 9, -149]), wall('fk_endB', [-2, 0, -150], [2, 9, -149]), wall('fk_endC', [7, 0, -150], [10, 9, -149]),
+  wall('fk_lintW', [-7, 3.6, -150], [-2, 9, -149]), wall('fk_lintE', [2, 3.6, -150], [7, 9, -149]), wall('fk_cap', [-10, 0, -165], [10, 9, -164]));
+E.push(door('doorW', [-7, 0, -149.7], [-2, 3.6, -149.3], [0, 3.75, 0], { in: ['ledW'], skin: 'door' }), door('doorE', [2, 0, -149.7], [7, 3.6, -149.3], [0, 3.75, 0], { in: ['ledE'], skin: 'door' }));
 
 function gateEntity(id, ins) { return { id, type: 'gate', op: 'logic', in: ins, pos: [0, -50, 0] }; }
 
@@ -37,6 +48,7 @@ export default {
   id: 'ch3', index: 3, title: 'The Architecture of Absence', subtitle: 'The Vestibule Quarter', theme: 'absence',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 4, maxTicks: 900, maxVolume: [14, 10, 16], modes: ['once', 'loop', 'pingpong', 'hold'] },
+  par: { recordings: 0 },
   par: { recordings: 0 },
   killY: -14,
   entities: E,
@@ -53,18 +65,27 @@ export default {
       intro: 'Two surveys of the same bridge. Neither is complete. Where they overlap, history disagrees about whose matter this is.',
       objective: 'Cross the gap before the overlapping spans tear themselves apart.',
       hint: 'Load both tapes (slots 1 and 2), press U to play all together, wait for both spans, then cross. Overlap costs coherence.' },
+    { id: 'd', name: 'The Fork', trigger: [-10, -1, -164, 10, 7, -101], checkpoint: { pos: [0, 0, -102], yaw: 0 },
+      intro: 'Two charters survive, and they cannot both be true: each raises a different bridge and condemns the other. You may play either, or both, and walk where they lead. A ledger on the far side will enter one of them into the record.',
+      objective: 'Cross, and decide which history becomes real.',
+      hint: 'Load a charter, play it (HOLD), cross, then stand at the ledger with that charter selected and press E. The other bridge will be gone for good — unless you rewind (F6).' },
   ],
-  exit: { box: [-10, 0, -100, 10, 6, -94] },
+  exits: [{ id: 'archive', box: [0.5, 0, -164, 9.5, 6, -156] }, { id: 'observatory', box: [-9.5, 0, -164, -0.5, 6, -156] }],
+  canon: { ledE: { key: 'ch3', value: 'archive' }, ledW: { key: 'ch3', value: 'observatory' } },
   tapes: [
     { id: 't3a', name: 'The Vestibule Stair', archive: 'stair', pos: [5, 0, 0] },
     { id: 't3b', name: 'The Last Operator', archive: 'operator', pos: [5, 0, -37] },
     { id: 't3x', name: 'Survey East Span', archive: 'spanX', pos: [-6, 0, -65] },
+    { id: 'tE', name: 'Charter of the Archive', archive: 'forkE', pos: [5, 0, -103] },
+    { id: 'tW', name: 'Charter of the Observatory', archive: 'forkW', pos: [-5, 0, -103] },
     { id: 't3y', name: 'Survey West Span', archive: 'spanY', pos: [6, 0, -65] },
   ],
   archives: [
     { id: 'stair', name: 'The Vestibule Stair', keep: stairScript.map((s) => s.id), volume: { x0: -5, x1: 5, y0: -1, y1: 9, z0: -22, z1: -10 }, ticks: 330, script: stairScript },
     { id: 'operator', name: 'The Last Operator', keep: ['op'], volume: { x0: -5, x1: 5, y0: -1, y1: 7, z0: -52, z1: -42 }, ticks: 240 },
     { id: 'spanX', name: 'Survey East Span', keep: ['deckX'], volume: { x0: -4, x1: 4, y0: -3, y1: 9, z0: -84, z1: -70 }, ticks: 300, script: [{ t: 10, id: 'deckX', set: { tgt: 1 } }] },
+    { id: 'forkE', name: 'Charter of the Archive', keep: [], volume: { x0: -7, x1: 7, y0: -8, y1: 3, z0: -127, z1: -107 }, ticks: 200, script: [{ t: 10, id: 'forkE', set: { tgt: 1 } }] },
+    { id: 'forkW', name: 'Charter of the Observatory', keep: [], volume: { x0: -7, x1: 7, y0: -8, y1: 3, z0: -127, z1: -107 }, ticks: 200, script: [{ t: 10, id: 'forkW', set: { tgt: 1 } }] },
     { id: 'spanY', name: 'Survey West Span', keep: ['deckY'], volume: { x0: -4, x1: 4, y0: -3, y1: 9, z0: -92, z1: -78 }, ticks: 300, script: [{ t: 10, id: 'deckY', set: { tgt: 1 } }] },
   ],
   discoveries: [

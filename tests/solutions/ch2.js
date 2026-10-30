@@ -1,3 +1,4 @@
+export const variants = [{ name: 'remembered-button', field: 'record' }, { name: 'crate-on-plate', field: 'crate' }];
 export default function solve(bot, dir, opts = {}) {
   const w = bot.w;
   const flyVol = (x, z) => bot.vol(x + 1, 1.5, z, 5.5, 3, 4.5);
@@ -61,5 +62,33 @@ export default function solve(bot, dir, opts = {}) {
   bot.press('btn3');
   bot.walkTo(0, -108.5);
   bot.walkTo(0, -112);
-  bot.walkTo(0, -120);
+  bot.walkTo(0, -113);
+  // --- D: the dead field
+  w.stop(0); w.stop(1);
+  if ((opts.variant?.field ?? 'record') === 'record') {
+    bot.walkTo(-6, -110.2);
+    w.startRecording(0, bot.vol(-5, 1.2, -110.9, 4, 2.2, 2.9), 'button held');
+    bot.press('safeBtn'); bot.step(30); w.stopRecording();
+    w.play(0, { mode: 'hold' });
+    bot.walkTo(0, -112.5);
+  } else {
+    bot.walkTo(-1, -113);
+    bot.walkTo(-7, -113);
+    bot.walkTo(-7, -111.3);
+    bot.faceXZ(8, -111.3);
+    for (let i = 0; i < 400 && !(bot.signal('safePl') > 0.5); i++) bot.step(1, { mz: 1 });
+    bot.step(30);
+    bot.walkTo(0, -112.5);
+  }
+  bot.step(40);
+  if (bot.st('laser', 's') > 0.1) throw new Error('the laser is still armed');
+  // run the field, hopping each sweeper as we meet it
+  const bars = [-122, -134];
+  bot.faceXZ(0, -145);
+  for (let i = 0; i < 1200 && bot.p[2] > -145; i++) {
+    const near = bars.some((z) => bot.p[2] - z > 0 && bot.p[2] - z < 1.9);
+    bot.step(1, { mz: 1, jump: near && bot.p[1] < 1.0 });
+  }
+  bot.walkTo(0, -147);
+  bot.walkTo(0, -156);
 }

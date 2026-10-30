@@ -26,9 +26,18 @@ E.push(gate('gov', 'gt', ['fw3'], { level: 1.5 }));
 E.push(gate('gov2', 'gt', ['fw3'], { level: 2.5 }), gate('gov2h', 'hold', ['gov2'], { ticks: 600 }));
 E.push(floor('vault_floor', [10, -3, -97], [22, 0, -89]), wall('vault_N', [10, 0, -97], [23, 9, -96]), wall('vault_S', [10, 0, -90], [23, 9, -89]), wall('vault_E', [22, 0, -97], [23, 9, -89]));
 E.push(door('vaultDoor', [10.2, 0, -96], [10.8, 3.4, -90], [0, 3.5, 0], { in: ['gov2h'], skin: 'door' }));
-// exit hall beyond the governor door
-E.push(...room('x', { zS: -110, zN: -124, endWall: true }));
-E.push(wall('x_cap', [-9, 0, -124], [9, 9, -123]));
+// ---- D: the dead field. A floor that kills while armed; remembered switches disarm it (history can subtract danger
+//      through a negated wire), and two low sweepers patrol it.
+E.push(...room('d', { zS: -110, zN: -146 }));
+E.push(button('safeBtn', [-6, 0, -111.5], 90), plate('safePl', [6, 0, -111.3]), crate('crateD', [-3.5, 0, -111.3]));
+E.push({ id: 'laser', type: 'slider', mode: 'matter', hazard: true, pos: [0, -1.6, -128], to: [0, 0.2, -128], size: [18, 0.4, 28], s0: 1, in: ['!safeBtn', '!safePl'], speed: 1.2 });
+[[-122, 0], [-134, 240]].forEach(([z, ph], i) => {
+  E.push(gate(`rpo${i + 1}`, 'osc', [], { period: 480, duty: 0.5, phase: ph }));
+  E.push({ id: `rp${i + 1}`, type: 'slider', mode: 'matter', hazard: true, pos: [-6, 0.35, z], to: [6, 0.35, z], size: [6, 0.7, 0.6], in: [`rpo${i + 1}`], speed: 0.25 });
+});
+// exit hall beyond the field
+E.push(...room('x', { zS: -146, zN: -160, endWall: true }));
+E.push(wall('x_cap', [-9, 0, -161], [9, 9, -160]));
 
 export default {
   id: 'ch2', index: 2, title: 'The Machine That Remembers', subtitle: 'Mnemonic Engine', theme: 'machine',
@@ -50,8 +59,12 @@ export default {
       intro: 'Some histories do not compete; they add. Two machines turning at once are faster than either.',
       objective: 'Drive the governor past 1.5 — the door is 25 m away.',
       hint: 'Record the flywheel spinning (HOLD), then spin it again yourself: echo + live = 2.0.' },
+    { id: 'd', name: 'The Dead Field', trigger: [-9, -1, -146, 9, 6, -111], checkpoint: { pos: [0, 0, -112], yaw: 0 },
+      intro: 'The Engine’s last room. The floor is a loom of live wire, armed unless something remembers it should not be. Two sweepers keep the rhythm.',
+      objective: 'Cross the field.',
+      hint: 'The laser sleeps while the button is down — for 1.5 s. A recording of the button held (frame the button, not the field) keeps it down. The crate on the plate would do the same. Sweepers are low: jump them.' },
   ],
-  exit: { box: [-9, 0, -124, 9, 6, -116] },
+  exit: { box: [-9, 0, -160, 9, 6, -152] },
   discoveries: [
     { id: 'ch2-d1', pos: [8, 1, 6], title: 'Log 0011 — The Engine', text: 'The Engine was not built to compute. It was built to remember being on.' },
     { id: 'ch2-d2', pos: [7.5, 1, -78], title: 'Log 0012 — The Belt', text: 'A crate on a belt is a very slow clock. Every clock in the Registry was one of these.' },

@@ -10,52 +10,77 @@ const MAX_BOUNCES = 12, MAX_LEN = 90;
 // '/' (rot 0): (dx,dz) -> (dz,dx);  '\' (rot 1): (dx,dz) -> (-dz,-dx)
 function reflect(dx, dz, rot) { return rot ? [-dz, -dx] : [dz, dx]; }
 
+const HUE_NAMES = ['white', 'red', 'green', 'blue'];
+export { HUE_NAMES };
+const MAX_SEGMENTS = 64;
+
+/**
+ * Traces every beam (from every history's projectors) through the reconciled geometry.
+ * Optics: mirrors reflect; a prism splits left/right (a white beam disperses into red/green/blue);
+ * a filter turns white into its colour, passes its own colour and stops the others.
+ */
 export function traceBeams(w) {
   w.beams.length = 0;
   w.litSensors.clear();
-  const blockers = [], mirrors = [];
+  const blockers = [], mirrors = [], prisms = [], filters = [];
   for (const s of w.solids) {
     if (s.mirror) mirrors.push(s);
-    else if (s.block && s.beam) blockers.push(s);
+    else if (s.prism) prisms.push(s);
+    else if (s.filter) filters.push(s);
+    else if ((s.block || s.hazard) && s.beam) blockers.push(s);
   }
   const sensors = [];
-  for (const L of w.items) if (L.def.type === 'sensor') sensors.push({ id: L.id, b: L.solidBox ?? sensorBox(L) });
+  for (const L of w.items) if (L.def.type === 'sensor') sensors.push({ id: L.id, hue: L.def.hue ?? 0, b: sensorBox(L) });
 
+  const rays = [];
   for (const L of w.allAlive()) {
     if (L.def.type !== 'beam' || L.st[0] < 0.5) continue;
-    let [dx, dz] = BEAM_DIRS[(L.def.dir ?? 0) & 3];
-    const y = L.def.pos[1];
-    let ox = L.def.pos[0], oz = L.def.pos[2];
-    const pts = [[ox, y, oz]];
-    let remaining = MAX_LEN, lastMirror = null;
-    for (let bounce = 0; bounce < MAX_BOUNCES; bounce++) {
-      let tb = remaining, tm = Infinity, hitM = null;
-      for (const s of blockers) {
-        const t = rayBox(ox, y, oz, dx, 0, dz, s.b, tb);
-        if (t >= 0 && t < tb && t > 0.02) tb = t;
-      }
-      for (const m of mirrors) {
-        if (lastMirror && m.id === lastMirror.id) continue; // same physical mirror, any history
-        const t = rayBox(ox, y, oz, dx, 0, dz, m.b, tb);
-        if (t >= 0 && t < tm && t <= tb) { tm = t; hitM = m; }
-      }
-      const reach = Math.min(tb, tm);
+    const [dx, dz] = BEAM_DIRS[(L.def.dir ?? 0) & 3];
+    rays.push({ layer: L.layer, id: L.id, y: L.def.pos[1], o: [L.def.pos[0], L.def.pos[2]], d: [dx, dz], hue: L.def.hue ?? 0, skip: null });
+  }
+  let segs = 0;
+  while (rays.length && segs < MAX_SEGMENTS) {
+    const r = rays.pop();
+    let [ox, oz] = r.o, [dx, dz] = r.d, remaining = MAX_LEN, skip = r.skip;
+    const y = r.y, pts = [[ox, y, oz]];
+    for (let bounce = 0; bounce < MAX_BOUNCES && segs < MAX_SEGMENTS; bounce++) {
+      segs++;
+      let tb = remaining, hit = null, ht = Infinity;
+      for (const s of blockers) { const t = rayBox(ox, y, oz, dx, 0, dz, s.b, tb); if (t >= 0 && t < tb && t > 0.02) tb = t; }
+      const consider = (list, kind) => {
+        for (const m of list) {
+          if (skip && m.id === skip) continue;
+          const t = rayBox(ox, y, oz, dx, 0, dz, m.b, tb);
+          if (t >= 0 && t <= tb && t < ht) { ht = t; hit = { kind, m }; }
+        }
+      };
+      consider(mirrors, 'mirror'); consider(prisms, 'prism'); consider(filters, 'filter');
+      const reach = hit ? Math.min(ht, tb) : tb;
       for (const se of sensors) {
         const t = rayBox(ox, y, oz, dx, 0, dz, se.b, reach);
-        if (t >= 0 && t <= reach) w.litSensors.add(se.id);
+        if (t >= 0 && t <= reach && (se.hue === 0 || se.hue === r.hue)) w.litSensors.add(se.id);
       }
-      if (hitM && tm <= tb) {
-        const cx = (hitM.b.x0 + hitM.b.x1) / 2, cz = (hitM.b.z0 + hitM.b.z1) / 2;
+      if (!hit || ht > tb) { pts.push([ox + dx * tb, y, oz + dz * tb]); break; }
+      const m = hit.m, cx = (m.b.x0 + m.b.x1) / 2, cz = (m.b.z0 + m.b.z1) / 2;
+      remaining -= ht;
+      if (hit.kind === 'mirror') {
         pts.push([cx, y, cz]);
-        remaining -= tm;
-        [dx, dz] = reflect(dx, dz, hitM.rot);
-        ox = cx; oz = cz; lastMirror = hitM;
-      } else {
-        pts.push([ox + dx * tb, y, oz + dz * tb]);
+        [dx, dz] = reflect(dx, dz, m.rot); ox = cx; oz = cz; skip = m.id;
+      } else if (hit.kind === 'prism') {
+        pts.push([cx, y, cz]);
+        const left = [-dz, dx], right = [dz, -dx];
+        const kids = r.hue === 0 ? [[left, 1], [[dx, dz], 2], [right, 3]] : [[left, r.hue], [right, r.hue]];
+        for (const [dd, hue] of kids) rays.push({ layer: r.layer, id: r.id, y, o: [cx, cz], d: dd, hue, skip: m.id });
         break;
+      } else { // filter
+        const hx = ox + dx * ht, hz = oz + dz * ht;
+        if (r.hue === 0) r.hue = m.filter;
+        else if (r.hue !== m.filter) { pts.push([hx, y, hz]); break; }
+        ox = hx + dx * 0.2; oz = hz + dz * 0.2; skip = m.id;
+        pts.push([hx, y, hz]);
       }
     }
-    w.beams.push({ layer: L.layer, id: L.id, pts });
+    w.beams.push({ layer: r.layer, id: r.id, pts, hue: r.hue });
   }
 }
 
@@ -80,6 +105,8 @@ export function collectSoundSources(w) {
   for (const L of w.allAlive()) {
     const t = L.def.type;
     if (t === 'emitter' && L.st[0] > 0.5) out.push({ layer: L.layer, id: L.id, note: L.def.note ?? 1, range: L.def.range ?? 16, pos: L.def.pos });
+    else if (t === 'carillon' && L.st[1] > 0.5) out.push({ layer: L.layer, id: L.id, note: L.st[1] | 0, range: L.def.range ?? 22, pos: L.def.pos });
+    else if (t === 'actor' && L.st[7] > 0.5 && L.st[4] > 0.5) out.push({ layer: L.layer, id: L.id, note: L.st[4] | 0, range: 14, pos: [L.st[0], L.st[1] + 0.5, L.st[2]] });
     else if (t === 'player' && L.st[8] > 0.5) out.push({ layer: L.layer, id: L.id, note: L.st[8] | 0, range: 15, pos: [L.st[0], L.st[1] + 0.5, L.st[2]] });
   }
   return out;

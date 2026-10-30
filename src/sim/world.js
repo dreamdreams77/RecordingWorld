@@ -46,12 +46,15 @@ export class World {
     this.conflicts = []; this.events = []; this.openIds = new Set(); this.overruled = new Set();
     this.prevBoxes = new Map();
     this.recordings = new Array(this.caps.slots).fill(null);
+    this.undo = Array.from({ length: this.caps.slots }, () => []);
     this.playbacks = new Array(this.caps.slots).fill(null);
     this.recorder = null;
     this.checkpoint = null;
     this.player = null;
     this.stats = { solids: 0, conflicts: 0, stepMs: 0, recordingsMade: 0 };
     this.nextDyn = 1;
+    this.pins = {}; this.sealed = new Set(); // canonised state: id → pinned slider position; ids that ignore all echoes
+    this.undo = [];
 
     for (const def of level.entities ?? []) {
       if (def.era && def.era !== this.era) continue;
@@ -117,6 +120,7 @@ export class World {
     this.buildSolids();
     this.physics();
     this.bodyBoxes = this.collectBodyBoxes();
+    this.checkHazards(this._bodies);
     traceBeams(this);
     computeSound(this);
     for (const L of this.items) if (L.type.post) L.type.post(L, this);
@@ -151,7 +155,7 @@ export class World {
           pb.items.set(tr.id, it);
         }
         const was = it.alive;
-        it.alive = tr.sample(tau, it.st);
+        it.alive = !this.sealed.has(tr.id) && tr.sample(tau, it.st); // canon outranks apocrypha
         it.age = it.alive ? (was ? it.age + 1 : 0) : 0;
       }
     }
@@ -171,7 +175,7 @@ export class World {
       let n = 0;
       L.type.colliders?.(L.def, L.st, (s) => {
         s.id = L.id; s.layer = L.layer; s.item = L; s.key = `${L.layer}|${L.id}|${n++}`;
-        s.block = true;
+        s.block = !s.hazard;
         if (s.body && !L.echo) { s.dyn = L.def.type === 'crate' ? L : null; L._solid = s; }
         if (s.aperture && s.open) open.add(L.id);
         solids.push(s);
@@ -228,7 +232,7 @@ export class World {
     if (input.jump && ground) { st[4] = JUMP_SPEED; st[9] = 0; }
     st[4] = Math.max(st[4] - GRAVITY * this.dt, -MAX_FALL);
     st[8] = input.tone | 0;
-    if (input.interact) this.interact();
+    if (input.interact) this.interact(input);
   }
   eye() { const s = this.player.st; return [s[0], s[1] - 0.9 + EYE_HEIGHT, s[2]]; }
   lookDir() {
@@ -251,10 +255,10 @@ export class World {
     }
     return best;
   }
-  interact() {
+  interact(input) {
     const L = this.aimedInteractable();
     if (!L) return null;
-    const r = L.type.interact(L, this);
+    const r = L.type.interact(L, this, input);
     if (r) this.emit(r, { id: L.id });
     return r;
   }
@@ -276,6 +280,7 @@ export class World {
     const crates = this.items.filter((L) => L.def.type === 'crate');
     const bodies = this.player ? [...crates, this.player] : crates;
     const killY = this.level.killY ?? -30;
+    this._bodies = bodies;
     for (const L of bodies) {
       const st = L.st, isPlayer = L === this.player;
       // 1. carried by whatever moved underneath us (lifts, echo bridges, conveyors)
@@ -307,6 +312,19 @@ export class World {
       if (st[1] < killY) {
         if (isPlayer) { this.emit('fell'); this.teleportPlayer(this.checkpoint.pos, this.checkpoint.yaw); }
         else { st[0] = L.def.pos[0]; st[1] = L.def.pos[1]; st[2] = L.def.pos[2]; st[4] = 0; this.emit('crate-lost', { id: L.id }); }
+      }
+    }
+  }
+  /** Moving hazards (any history's) zap present bodies on contact. */
+  checkHazards(bodies) {
+    for (const L of bodies) {
+      const bb = bodyBox(L);
+      for (const s of this.solids) {
+        if (!s.hazard || !overlaps(bb, s.b)) continue;
+        this.conflicts.push({ kind: 'hazard', id: s.id, layer: s.layer, body: L.id, box: intersection(bb, s.b), vol: 0 });
+        if (L === this.player) { this.emit('zapped', { by: s.id, layer: s.layer }); this.teleportPlayer(this.checkpoint.pos, this.checkpoint.yaw); }
+        else { L.st[0] = L.def.pos[0]; L.st[1] = L.def.pos[1]; L.st[2] = L.def.pos[2]; L.st[3] = L.st[4] = L.st[5] = 0; this.emit('crate-lost', { id: L.id }); }
+        break;
       }
     }
   }
@@ -426,7 +444,7 @@ export class World {
     // (c) coherence accounting: echoes that fight reality lose coherence and eventually collapse
     const drain = new Float32Array(this.playbacks.length);
     for (const c of C) {
-      if (c.kind === 'state' || c.kind === 'projection') continue;
+      if (c.kind === 'state' || c.kind === 'projection' || c.kind === 'hazard') continue;
       const w = Math.min(1, (c.vol ?? 3.6) / 6);
       if (c.layerA > 0) drain[c.layerA - 1] += 0.0006 + 0.001 * w;
       if (c.layerB > 0) drain[c.layerB - 1] += 0.0006 + 0.001 * w;
@@ -443,7 +461,7 @@ export class World {
   // ------------------------------------------------------------------ recording / playback API
   slotCount() { return this.caps.slots; }
   setSlots(n) {
-    while (this.recordings.length < n) { this.recordings.push(null); this.playbacks.push(null); }
+    while (this.recordings.length < n) { this.recordings.push(null); this.playbacks.push(null); this.undo.push([]); }
     this.caps.slots = n;
   }
   /** @param volume {x0,y0,z0,x1,y1,z1} */
@@ -451,6 +469,7 @@ export class World {
     if (this.recorder) this.stopRecording('restart');
     if (slot < 0 || slot >= this.caps.slots) return false;
     this.deactivate(slot);
+    this.pushUndo(slot);
     this.recorder = new Recorder(slot, volume, this.caps.maxTicks, name ?? `Recording ${slot + 1}`);
     this.recorder.capture(this);
     this.emit('record-start', { slot });
@@ -471,11 +490,27 @@ export class World {
   }
   loadRecording(slot, rec) {
     this.deactivate(slot);
+    this.pushUndo(slot);
     this.recordings[slot] = rec;
     this.playbacks[slot] = new Playback(slot, rec);
     this.emit('tape-loaded', { slot });
   }
-  eraseRecording(slot) { this.deactivate(slot); this.recordings[slot] = null; this.playbacks[slot] = null; }
+  eraseRecording(slot) { this.deactivate(slot); this.pushUndo(slot); this.recordings[slot] = null; this.playbacks[slot] = null; }
+  /** Overwritten or erased recordings are kept (last four per slot) so experiments can be undone. */
+  pushUndo(slot) {
+    const r = this.recordings[slot];
+    if (r) { const u = (this.undo[slot] ??= []); u.push(r); if (u.length > 4) u.shift(); }
+  }
+  /** Brings back the previous recording of a slot. Returns it, or null when there is nothing to restore. */
+  rollbackRecording(slot) {
+    const u = this.undo[slot]; if (!u?.length) return null;
+    if (this.recorder?.slot === slot) this.stopRecording('rollback');
+    this.deactivate(slot);
+    const rec = u.pop();
+    this.recordings[slot] = rec; this.playbacks[slot] = new Playback(slot, rec);
+    this.emit('rollback', { slot, remaining: u.length });
+    return rec;
+  }
   deactivate(slot) {
     const pb = this.playbacks[slot]; if (!pb) return;
     pb.active = false; pb.playing = false; pb.items.clear();
@@ -522,6 +557,70 @@ export class World {
     pb.head = clamp(head, 0, pb.rec.length - 1); pb.playing = false;
   }
 
+  // ------------------------------------------------------------------ consequence: canon
+  /**
+   * Enters a recording into the record as true. Its final frame becomes present reality:
+   * tracked present entities adopt their recorded state (sliders are pinned there, even if that means
+   * pinned shut), history-only matter is built for real, and every id the recording touched stops
+   * listening to any echo (rule R9: canon outranks apocrypha). It cannot be undone except by rewinding.
+   */
+  canonize(slot, source = null) {
+    const rec = this.recordings[slot]; if (!rec) return null;
+    const tau = rec.length - 1, adopted = [], built = [];
+    for (const tr of rec.tracks.values()) {
+      const st = new Float64Array(tr.nch);
+      if (!tr.sample(tau, st)) continue;
+      const kind = tr.def.type;
+      if (kind === 'player' || kind === 'actor') continue;
+      const P = this.byId.get(tr.id);
+      if (P) {
+        if (kind === 'slider' || kind === 'descender') this.pins[tr.id] = st[0];
+        if (['lever', 'mirror', 'crate', 'crumble'].includes(kind)) P.st.set(st);
+        if (kind === 'slider' || kind === 'descender') P.st[0] = st[0];
+        this.sealed.add(tr.id); adopted.push(tr.id);
+      } else if (kind === 'slider' || kind === 'wall' || kind === 'crumble' || kind === 'descender') {
+        const def = JSON.parse(JSON.stringify(tr.def)); delete def.era; delete def.in; delete def.past; def.dyn = true; def.canon = true;
+        if (kind === 'slider' || kind === 'descender') def.s0 = st[0];
+        const L = this.addEntity(def); L.st.set(st);
+        if (kind === 'slider' || kind === 'descender') this.pins[tr.id] = st[0];
+        this.sealed.add(tr.id); built.push(tr.id);
+      }
+    }
+    const name = rec.name;
+    this.pushUndo(slot); this.deactivate(slot); this.recordings[slot] = null; this.playbacks[slot] = null;
+    this.refreshDerived();
+    this.emit('canon', { slot, name, adopted, built, source });
+    return { adopted, built, name };
+  }
+
+  // ------------------------------------------------------------------ recovery: cheap in-memory captures (rewind)
+  /** A restorable picture of the whole world. Recordings are immutable so they are shared, not copied. */
+  capture() {
+    return {
+      tick: this.tick, nextDyn: this.nextDyn, caps: { ...this.caps }, checkpoint: this.checkpoint && { ...this.checkpoint },
+      ents: new Map(this.items.map((L) => [L.id, Float64Array.from(L.st)])),
+      dyn: this.items.filter((L) => L.def.dyn).map((L) => L.def),
+      pins: { ...this.pins }, sealed: [...this.sealed],
+      recs: [...this.recordings], pbs: this.playbacks.map((p) => (p ? p.toJSON() : null)),
+    };
+  }
+  reinstate(c) {
+    this.tick = c.tick; this.nextDyn = c.nextDyn; this.caps = { ...this.caps, ...c.caps }; this.recorder = null;
+    for (const L of [...this.items]) if (L.def.dyn) this.removeEntity(L.id);
+    for (const d of c.dyn) this.addEntity(d);
+    for (const L of this.items) { const a = c.ents.get(L.id); if (a) L.st.set(a); }
+    this.pins = { ...c.pins }; this.sealed = new Set(c.sealed); this.checkpoint = c.checkpoint ? { ...c.checkpoint } : this.checkpoint;
+    this.recordings = [...c.recs];
+    this.playbacks = c.pbs.map((j, i) => {
+      if (!j || !this.recordings[i]) return null;
+      const pb = new Playback(i, this.recordings[i]);
+      Object.assign(pb, { head: j.head, rate: j.rate, mode: j.mode, active: j.active, playing: j.playing, coherence: j.coherence, age: j.age });
+      return pb;
+    });
+    this.refreshDerived();
+    this.emit('rewound', { tick: c.tick });
+  }
+
   // ------------------------------------------------------------------ inspection (feeds the HUD and dev tools)
   /** Ray-pick the nearest entity (present or echo) for inspection. */
   pick(origin, dir, maxT = 40) {
@@ -555,6 +654,8 @@ export class World {
   hash() {
     const h = new Hasher();
     h.num(this.tick);
+    for (const k of Object.keys(this.pins).sort()) { h.str(k); h.num(this.pins[k]); }
+    for (const k of [...this.sealed].sort()) h.str(k);
     for (const L of this.items) { h.str(L.id); for (const v of L.st) h.num(v); }
     this.playbacks.forEach((pb, i) => { if (pb) { h.num(i); h.num(pb.head); h.num(pb.active ? 1 : 0); h.num(pb.playing ? 1 : 0); h.num(pb.rate); h.num(pb.coherence); } });
     this.recordings.forEach((r) => { if (r) { h.num(r.length); h.num(r.keyframes); } });
@@ -563,15 +664,14 @@ export class World {
   snapshot() {
     return {
       v: 1, tick: this.tick, era: this.era, caps: this.caps, checkpoint: this.checkpoint, nextDyn: this.nextDyn,
-      dyn: this.items.filter((L) => L.def.dyn).map((L) => L.def),
-      removed: [],
+      dyn: this.items.filter((L) => L.def.dyn).map((L) => L.def), pins: this.pins, sealed: [...this.sealed],
       ents: Object.fromEntries(this.items.map((L) => [L.id, Array.from(L.st)])),
       recs: this.recordings.map((r) => (r ? r.toJSON() : null)),
       pbs: this.playbacks.map((p) => (p ? p.toJSON() : null)),
     };
   }
   restore(s) {
-    this.tick = s.tick; this.nextDyn = s.nextDyn ?? 1;
+    this.tick = s.tick; this.nextDyn = s.nextDyn ?? 1; this.pins = { ...(s.pins ?? {}) }; this.sealed = new Set(s.sealed ?? []);
     this.caps = { ...this.caps, ...s.caps };
     this.recorder = null;
     for (const L of [...this.items]) if (L.def.dyn) this.removeEntity(L.id);

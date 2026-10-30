@@ -29,7 +29,8 @@ E.push(lamp('metroLamp', [-6, 3.2, -34], ['metro'], { power: 8, range: 12 }), em
 E.push(...room('c', { zS: -70, zN: -112, floorTo: false, endWall: false }));
 E.push(floor('c_f1', [-10, -3, -97], [10, 0, -70]), floor('c_f2', [-10, -3, -103], [-3, 0, -97]), floor('c_f3', [3, -3, -103], [10, 0, -97]), floor('c_f4', [-10, -3, -112], [10, 0, -103]));
 E.push(wall('c_pitW', [-3, -3, -103], [-2.9, 0, -97]), wall('c_pitE', [2.9, -3, -103], [3, 0, -97]));
-E.push(wall('deck', [-10, 14.5, -112], [10, 18, -103]), wall('c_cap', [-10, 0, -113], [10, 30, -112]));
+E.push(wall('deck', [-10, 14.5, -160], [10, 18, -103]));
+E.push(wall('deck_wW', [-11, 18, -161], [-10, 30, -103]), wall('deck_wE', [10, 18, -161], [11, 30, -103]), wall('deck_cap', [-11, 18, -162], [11, 30, -161]), wall('c_cap', [-10, 0, -113], [10, 14.5, -112]));
 E.push(beam('B5c', [-8, 1.2, -80], 0), wall('c_div1a', [-1.5, 0, -86], [-0.5, 5, -81.5]), wall('c_div1b', [-1.5, 0, -78.5], [-0.5, 5, -74]), sensor('S5c', [8, 1.2, -80], { facing: Math.PI / 2 }));
 E.push(door('shutter', [-0.5, 0, -81.5], [0.5, 3, -78.5], [0, 3.2, 0], { in: ['btn5s'], skin: 'door' }));
 E.push(button('btn5s', [-4, 0, -76], 150));
@@ -37,11 +38,25 @@ E.push(flywheel('fw5', [-7, 0, -91], ['btn5f'], { accel: 0.5, drag: 0.12 }), but
 E.push(resonator('res5', [6, 1.4, -100], { want: [4], charge: 25, hold: 120, decay: 60 }));
 E.push(bridge('lift', [-3, -0.5, -103], [3, 0, -97], [0, 18, 0], { in: ['S5c', 'fw5', 'res5'], speed: 0.075, skin: 'bridge' }));
 
+// ---- D: the prism hall (on the observatory deck). White light is split into red, green and blue; each path
+//      has its own timed shutter and each sensor remembers for a while. Never are all three lit at once.
+const Y = 18;
+E.push(beam('E0', [-8, Y + 1.2, -125], 0), { id: 'P', type: 'prism', pos: [0, Y + 1.2, -125] });
+E.push(sensor('Sr', [0, Y + 1.2, -117], { hue: 1, hold: 150, facing: Math.PI }), sensor('Sg', [8, Y + 1.2, -125], { hue: 2, hold: 150, facing: Math.PI / 2 }), sensor('Sb', [0, Y + 1.2, -133], { hue: 3, hold: 150, facing: 0 }));
+[['R', 0, [-1, Y, -121.2], [1, Y + 3.2, -120.8], [0, 3.4, 0]], ['G', 300, [3.8, Y, -126], [4.2, Y + 3.2, -124], [0, 3.4, 0]], ['B', 400, [-1, Y, -129.2], [1, Y + 3.2, -128.8], [0, 3.4, 0]]].forEach(([k, ph, a, b, mv]) => {
+  E.push(gate(`w${k}`, 'osc', [], { period: 600, duty: 0.4, phase: k === 'R' ? 0 : k === 'G' ? 400 : 200 }));
+  E.push(door(`sh${k}`, a, b, mv, { in: [`w${k}`], skin: 'door', speed: 1.5 }));
+});
+E.push(gate('allLit', 'logic', ['Sr', 'Sg', 'Sb']), gate('allHold', 'hold', ['allLit'], { ticks: 600 }));
+E.push(wall('p_endL', [-10, Y, -143], [-2.2, Y + 12, -142]), wall('p_endR', [2.2, Y, -143], [10, Y + 12, -142]), wall('p_lint', [-2.2, Y + 3.6, -143], [2.2, Y + 12, -142]));
+E.push(door('doorP', [-2.2, Y, -142.7], [2.2, Y + 3.6, -142.3], [0, 3.75, 0], { in: ['allHold'], skin: 'door' }));
+
 export default {
   id: 'ch5', index: 5, title: 'The Infinite Observatory', subtitle: 'The Great Shaft', theme: 'observatory',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 4, maxTicks: 600, maxVolume: [18, 12, 26], modes: ['once', 'loop', 'pingpong', 'hold'], sound: true },
   par: { recordings: 7 },
+  par: { recordings: 8 },
   killY: -16, sound: true,
   entities: E,
   sections: [
@@ -57,8 +72,12 @@ export default {
       intro: 'Light through the shutter, a flywheel at speed, a voice at the resonator. The lift wants all three, for as long as it takes to climb.',
       objective: 'Ride the lift to the deck.',
       hint: 'Three short recordings: shutter open, flywheel spinning, and note F (V) sung while standing on the lift. Start the last replay from the far side of the lift — it only climbs once all three hold.' },
+    { id: 'd', name: 'The Prism Hall', trigger: [-10, 17, -160, 10, 28, -104], checkpoint: { pos: [0, 18, -106], yaw: 0 },
+      intro: 'White light enters the prism and leaves as three colours, each behind a shutter that opens for four seconds in ten. Each sensor remembers its colour for a moment — but never long enough.',
+      objective: 'Light red, green and blue together.',
+      hint: 'Record one full ten-second cycle of the sensors (stay clear of the beams), then play it OFFSET from the present by half a cycle — scrub to the middle (, .) before pressing T, or wait 5 s and press T. Two histories, half a cycle apart, can agree where one cannot.' },
   ],
-  exit: { box: [-10, 17, -112, 10, 26, -105] },
+  exit: { box: [-10, 17, -160, 10, 26, -148] },
   discoveries: [
     { id: 'ch5-d1', pos: [-8, 1, 6], title: 'Log 0041 — Starlight', text: 'I measured the sky for four thousand hours. It never moved. I decided the instrument was broken.' },
     { id: 'ch5-d2', pos: [8, 1, -69], title: 'Log 0042 — The Beat', text: 'The metronome is not for you. It is for whoever is playing you back, so they stay in time.' },

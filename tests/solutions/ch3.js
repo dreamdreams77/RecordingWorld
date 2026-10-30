@@ -1,3 +1,4 @@
+export const variants = [{ name: 'archive', fork: 'E' }, { name: 'observatory', fork: 'W' }];
 export default function solve(bot, dir, opts = {}) {
   const w = bot.w;
   // --- A: load the stair tape, wait for reconstruction, climb
@@ -47,5 +48,25 @@ export default function solve(bot, dir, opts = {}) {
   bot.step(190);
   bot.walkTo(0, -75);
   bot.walkTo(0, -88);
-  bot.walkTo(0, -96);
+  bot.walkTo(0, -98);
+  // --- D: the fork
+  const E = (opts.variant?.fork ?? 'E') === 'E', sx = E ? 5 : -5, lane = E ? 4 : -4;
+  w.stop(0); w.stop(1);
+  bot.walkTo(sx, -102.3);
+  dir.loadTape(dir.nearbyTape(), 0);
+  w.play(0, { mode: 'hold' });
+  bot.step(150);
+  bot.walkTo(lane, -108.5);
+  bot.walkTo(lane, -125);
+  bot.walkTo(sx, -131.5);
+  bot.lookAt(sx, 0.6, -134);
+  bot.step(1, { interact: true, slot: 0 });
+  bot.step(3);
+  if (bot.signal(E ? 'ledE' : 'ledW') < 0.5) throw new Error('the ledger did not accept the history');
+  bot.step(90);
+  const ex = E ? 3.5 : -3.5;
+  bot.walkTo(ex, -134);
+  bot.walkTo(ex, -146);
+  bot.walkTo(ex, -154);
+  bot.walkTo(ex, -160);
 }
