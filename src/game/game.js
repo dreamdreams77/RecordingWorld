@@ -10,6 +10,7 @@ import { GameRenderer } from '../render/renderer.js';
 import { HUD } from '../ui/hud.js';
 import { Input } from './input.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { TouchControls } from '../ui/touch.js';
 import { SPAWNABLE } from '../levels/sandbox.js';
 import { loadProgress, saveProgress, levelRecord, saveSnapshot, loadSnapshot } from './progress.js';
 
@@ -26,6 +27,7 @@ export class Game {
     this.canvas = root.querySelector('canvas#view');
     this.input = new Input(this.canvas, (locked) => this.onLock(locked));
     this.hud = new HUD(root);
+    if (this.input.touch) { document.body.classList.add('touch'); this.touchUI = new TouchControls(this); }
     this.audio = audio; this.menus = menus;
     this.state = 'boot'; // boot | menu | loading | play | pause | cinematic | ended
     this.world = null; this.director = null; this.level = null;
@@ -46,6 +48,7 @@ export class Game {
   }
 
   resize() { this.renderer.resize(); }
+
   applySettings() {
     const s = this.settings;
     document.documentElement.style.setProperty('--ui', s.uiScale);
@@ -305,6 +308,7 @@ export class Game {
   // ------------------------------------------------------------------ per-frame control
   frame(now) {
     requestAnimationFrame((t) => this.frame(t));
+    this.touchUI?.update();
     const dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
     this.fps += (1 / Math.max(dt, 1e-4) - this.fps) * 0.05;
     if (this.state === 'play') this.playFrame(dt);

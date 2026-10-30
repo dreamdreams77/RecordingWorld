@@ -1,0 +1,46 @@
+// Touch-device check: emulated Android phone, real touch events through CDP (no keyboard, no pointer lock).
+import { chromium, devices } from 'playwright';
+import fs from 'node:fs';
+const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome';
+const b = await chromium.launch({ executablePath: fs.existsSync(CHROME) ? CHROME : undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
+const ctx = await b.newContext({ ...devices['Pixel 7 landscape'] });
+const p = await ctx.newPage(); const cdp = await ctx.newCDPSession(p);
+const errors = []; p.on('pageerror', (e) => errors.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+let failed = 0; const check = (n, ok, x = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${n} ${x}`); if (!ok) failed++; };
+const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+const drag = async (from, to, steps = 12) => { await touch('touchStart', [from]); for (let i = 1; i <= steps; i++) await touch('touchMove', [[from[0] + (to[0] - from[0]) * i / steps, from[1] + (to[1] - from[1]) * i / steps]]); };
+await p.goto(process.env.URL ?? 'http://localhost:4173/?audio=0');
+await p.waitForFunction(() => window.__game?.state === 'title', null, { timeout: 90000 });
+check('touch device detected', await p.evaluate(() => window.__game.input.touch && document.body.classList.contains('touch')));
+await p.tap('text=Begin');
+await p.waitForFunction(() => window.__game.state === 'play', null, { timeout: 120000 });
+await p.waitForTimeout(1500);
+check('touch controls visible while playing', await p.evaluate(() => getComputedStyle(document.getElementById('touch')).display !== 'none'));
+const vp = p.viewportSize();
+// left thumb: move stick forward
+const z0 = await p.evaluate(() => window.__game.world.player.st[2]);
+await drag([vp.width * 0.15, vp.height * 0.7], [vp.width * 0.15, vp.height * 0.7 - 55]); await p.waitForTimeout(1500); await touch('touchEnd', []);
+const z1 = await p.evaluate(() => window.__game.world.player.st[2]);
+check('left stick walks the player forward', z1 < z0 - 1, `z ${z0.toFixed(2)} → ${z1.toFixed(2)}`);
+// right thumb: look
+const yaw0 = await p.evaluate(() => window.__game.yaw);
+await drag([vp.width * 0.7, vp.height * 0.5], [vp.width * 0.7 + 120, vp.height * 0.5]); await touch('touchEnd', []);
+const yaw1 = await p.evaluate(() => window.__game.yaw);
+check('dragging the right side turns the view', Math.abs(yaw1 - yaw0) > 0.1, `yaw ${yaw0.toFixed(2)} → ${yaw1.toFixed(2)}`);
+const until = (fn) => p.waitForFunction(fn, null, { timeout: 15000 }).then(() => true, () => false);
+const btn = (t) => p.locator(`#touch .tb:has-text("${t}")`).first();
+await p.evaluate(() => { window.__game.pitch = -1.2; });
+await btn('FRAME').tap();
+check('FRAME button enters frame mode', await until(() => window.__game.frameMode));
+await touch('touchStart', [[vp.width * 0.7, vp.height * 0.5]]); await touch('touchEnd', []);
+check('tapping the view pins the volume', await until(() => !!window.__game.pinned));
+await btn('REC').tap();
+check('REC button starts a recording', await until(() => !!window.__game.world.recorder));
+await until(() => window.__game.world.recorder.tau > 90); await btn('REC').tap();
+check('REC again stores a real recording', await until(() => !window.__game.world.recorder && !!window.__game.world.recordings[0]));
+await btn('JUMP').tap();
+await p.screenshot({ path: new URL('../docs/screenshots/13-touch-controls.png', import.meta.url).pathname, timeout: 120000 });
+await btn('☰').tap();
+check('menu button pauses', await until(() => window.__game.state === 'pause'));
+check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
+await b.close(); process.exit(failed ? 1 : 0);

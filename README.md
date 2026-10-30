@@ -63,3 +63,7 @@ fixed 60 Hz deterministic `World` with no DOM or randomness; saving is an exact 
   minutes), human perception of audio. See Known limitations.
 
 The earlier 2D prototype is preserved in `legacy-2d/`. License: MIT.
+
+
+## Playing on a phone or tablet
+Touch devices get on-screen controls automatically (no keyboard or pointer lock needed): left thumb = move stick, right thumb = look (a quick tap is a click: pin the frame / place), buttons for FRAME (Q), REC (R), USE (E), PLAY (T), JUMP, plus a slot selector, rewind, pause, `⋯` (stop, mode, reverse, scrub, frame size, unpin, lens) and `♪` (the seven voice notes). Phones default to the Low graphics preset; landscape is recommended. Verified with an emulated Android phone and real touch events (`node e2e/touch.mjs`); it has not been tried on physical hardware, so please report device-specific problems.

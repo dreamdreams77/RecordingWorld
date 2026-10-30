@@ -118,3 +118,28 @@ body.cinema .hudlayer { opacity: 0; }
 @media (max-width: 900px) { #deck { transform: translateX(-50%) scale(.82); transform-origin: bottom center; } #inspect { display: none !important; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } #recbar .dot { animation: none; } }
 .reduced * { animation: none !important; transition: none !important; }
+
+/* ---- touch controls ---- */
+#touch { position: fixed; inset: 0; z-index: 30; pointer-events: none; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#touch .tz { position: absolute; top: 0; bottom: 0; pointer-events: auto; touch-action: none; }
+#touch .tz-move { left: 0; width: 42%; } #touch .tz-look { right: 0; width: 58%; }
+#touch .stick { position: fixed; width: 116px; height: 116px; border-radius: 50%; border: 1.5px solid rgba(232,200,138,.55); background: rgba(10,12,16,.35); pointer-events: none; }
+#touch .stick i { position: absolute; left: 36px; top: 36px; width: 44px; height: 44px; border-radius: 50%; background: rgba(232,200,138,.5); }
+#touch [hidden] { display: none !important; }
+#touch .tb { pointer-events: auto; touch-action: none; border: 1.5px solid rgba(232,200,138,.6); background: rgba(10,12,16,.62); color: var(--gold, #e8c88a); font: 600 12px var(--mono); border-radius: 14px; min-width: 58px; height: 52px; padding: 0 8px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; letter-spacing: .06em; backdrop-filter: blur(3px); }
+#touch .tb small { font-size: 9px; opacity: .6; letter-spacing: 0; }
+#touch .tb.on { background: rgba(232,200,138,.35); color: #fff; }
+#touch .tb.rec { border-color: rgba(255,106,74,.8); color: #ff8a6a; }
+#touch .tb.sm { min-width: 46px; height: 42px; font-size: 16px; }
+#touch .tb.big { min-width: 84px; height: 62px; }
+#touch .tbar { position: absolute; left: calc(8px + env(safe-area-inset-left)); bottom: calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; }
+#touch .tcluster { position: absolute; right: calc(10px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, auto); gap: 8px; justify-items: end; }
+#touch .tb.big { grid-column: span 2; width: 100%; }
+#touch .tdrawer { position: absolute; right: calc(10px + env(safe-area-inset-right)); bottom: calc(190px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, auto); gap: 8px; }
+#touch .tnotes { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); display: flex; gap: 6px; }
+#touch .tnotes .tb { min-width: 42px; height: 52px; }
+@media (orientation: portrait) { #touch .tbar { bottom: calc(190px + env(safe-area-inset-bottom)); } #touch .tcluster { bottom: calc(190px + env(safe-area-inset-bottom)); } #touch .tdrawer { bottom: calc(380px + env(safe-area-inset-bottom)); } #touch .tnotes { bottom: calc(270px + env(safe-area-inset-bottom)); } }
+body.touch #legend, body.touch #range { display: none; }
+body.touch .panel { font-size: 12px; }
+body.touch #ticker { display: none; }
+body.touch #feed { bottom: 74px; width: min(330px, 46vw); }

@@ -20,6 +20,9 @@ export function loadSettings() {
   try { const raw = localStorage.getItem(KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch { /* storage unavailable */ }
   return { ...DEFAULT_SETTINGS, ...memory };
 }
+/** Phones get the light preset until the player chooses otherwise. */
+const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
+if (coarse) DEFAULT_SETTINGS.quality = 'low';
 export function saveSettings(s) {
   Object.assign(memory, s);
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ }

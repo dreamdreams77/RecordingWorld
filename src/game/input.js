@@ -6,6 +6,8 @@ export class Input {
     this.down = new Set(); this.pressed = new Set(); this.released = new Set();
     this.dx = 0; this.dy = 0; this.wheel = 0; this.buttons = new Set(); this.clicks = [];
     this.locked = false; this.enabled = true;
+    // phones and tablets: no pointer lock exists, so "locked" simply means "playing"; on-screen controls feed this object
+    this.touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
     addEventListener('keydown', (e) => {
       if (!this.enabled) return;
       if (e.repeat) { if (['Tab', 'F3', 'F4'].includes(e.code)) e.preventDefault(); return; }
@@ -21,8 +23,8 @@ export class Input {
     addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; onLockChange?.(this.locked); });
   }
-  lock() { try { const r = this.canvas.requestPointerLock?.(); if (r?.catch) r.catch(() => {}); } catch { /* unsupported (headless) */ } }
-  unlock() { try { document.exitPointerLock?.(); } catch { /* ignore */ } }
+  lock() { if (this.touch) { this.locked = true; return; } try { const r = this.canvas.requestPointerLock?.(); if (r?.catch) r.catch(() => {}); } catch { /* unsupported (headless) */ } }
+  unlock() { if (this.touch) { this.locked = false; return; } try { document.exitPointerLock?.(); } catch { /* ignore */ } }
   held(...codes) { return codes.some((c) => this.down.has(c)); }
   hit(...codes) { return codes.some((c) => this.pressed.has(c)); }
   endFrame() { this.pressed.clear(); this.released.clear(); this.dx = this.dy = 0; this.wheel = 0; this.clicks.length = 0; }
