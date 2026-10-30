@@ -496,23 +496,26 @@ export class Game {
     if (this.progress.stats.deaths >= 5) this.react('n-falls', 'Falling is only a short recording you did not intend to make.');
   }
   onCanon(e) {
+    if (!e.built) return; // the ledger's own interact result also surfaces as a bare 'canon' event; the real one carries what changed
     const spec = this.level.canon?.[e.source];
     if (spec) { this.progress.canon[spec.key] = spec.value; saveProgress(this.progress); }
     this.teach('r-canon', 'RULE — CANON', 'A history entered in the ledger becomes real: its final frame is now the present, and every object it touched stops listening to any other history. Only rewinding (F6) can undo it.', 'warn');
     this.hud.toast(`“${e.name}” is now the record. ${e.built.length ? `Built: ${e.built.join(', ')}. ` : ''}${e.adopted.length ? `Adopted: ${e.adopted.join(', ')}.` : ''}`, 'disc', 'CANON', 12000);
-    this.audio?.event('canon'); this.renderer.pulse(0.45); this.hud.flash(0.3);
+    this.audio?.event('canon'); this.renderer.pulse(0.45); this.renderer.burst([...this.world.player.st.slice(0, 3)], { color: 0xffd88a, size: 9, dur: 1.6, sparks: 60, speed: 6 }); this.hud.flash(0.3);
     if (spec) this.hud.say(spec.value === 'archive' ? 'You chose the Archive. Somewhere the Observatory is a story nobody finished.' : 'You chose the Observatory. Somewhere the Archive is a room nobody opened.', 'THE ARCHIVIST', 9000);
   }
   handleEvents() {
     for (const e of this.world.drainEvents()) {
       switch (e.type) {
         case 'fell': case 'crushed': this.progress.stats.deaths++; this.hud.toast(e.type === 'fell' ? 'Temporal shock: returned to the last checkpoint.' : 'Crushed between histories. Returned to checkpoint.', 'warn'); this.audio?.event('shock'); this.renderer.pulse(0.3); this.yaw = this.world.checkpoint.yaw; break;
-        case 'collapse': this.teach('r-collapse', 'COLLAPSE', 'Coherence reached zero. The echo is gone but the recording is intact. History can be replayed; it just cannot be forced.', 'warn'); this.hud.toast(`Recording ${e.slot + 1} lost coherence and collapsed. It is still stored — replay it more carefully.`, 'warn'); this.audio?.event('collapse'); this.renderer.pulse(0.2); break;
+        case 'collapse': this.teach('r-collapse', 'COLLAPSE', 'Coherence reached zero. The echo is gone but the recording is intact. History can be replayed; it just cannot be forced.', 'warn'); this.hud.toast(`Recording ${e.slot + 1} lost coherence and collapsed. It is still stored — replay it more carefully.`, 'warn'); this.audio?.event('collapse'); this.renderer.pulse(0.2); this.renderer.burst([...this.world.player.st.slice(0, 3)], { color: 0xff6a4a, size: 4, sparks: 24 }); break;
         case 'record-stop': this.hud.toast(`Recording ${e.slot + 1} stored — ${(e.ticks / 60).toFixed(1)} s, ${e.keyframes} keyframes.`, 'good'); break;
         case 'zapped': this.progress.stats.deaths++; this.teach('r-hazard', 'HAZARD', 'Moving hazards are matter that hurts. Echoes of hazards hurt too — history is not safer than the present.', 'warn'); this.hud.toast('Zapped. Returned to the last checkpoint.', 'warn'); this.audio?.event('shock'); this.renderer.pulse(0.3); this.yaw = this.world.checkpoint.yaw; break;
         case 'ledger-empty': this.hud.toast('The ledger needs a recording. Select a slot that holds a history (1–6) and press E again.', 'warn'); break;
         case 'ledger-refuse': this.hud.toast('This ledger does not recognise that history. It records only the charter whose bridge leads here.', 'warn', 'LEDGER'); break;
         case 'canon': this.onCanon(e); break;
+        case 'reconcile': this.renderer.burst(e.pos, { color: 0xe8c88a, size: 2.2, dur: 0.8, sparks: 10, speed: 2 }); break;
+        case 'shatter': this.audio?.event('collapse'); this.renderer.burst(e.pos, { color: 0xbfe4ff, size: 3.5, dur: 1.0, sparks: 40, speed: 5 }); this.renderer.pulse(0.15); this.hud.toast('The glass was only ever a note. It could not hold the pitch.', 'disc', 'SHATTERED'); break;
         case 'rollback': break;
         case 'record-empty': this.hud.toast('The volume was empty — nothing was recorded. Pin the frame around something (Q, aim, click).', 'warn'); break;
         case 'crate-lost': this.hud.toast('A crate fell out of reality and was recalled.', 'warn'); break;
@@ -524,28 +527,39 @@ export class Game {
   }
   renderFrame(dt, alpha) {
     const w = this.world, p = this.cur, q = this.prev;
-    const cam = { x: lerp(q[0], p[0], alpha), y: lerp(q[1], p[1], alpha), z: lerp(q[2], p[2], alpha), yaw: this.yaw, pitch: this.pitch, speed: Math.hypot(p[3], p[5]), ground: p[9] > 0.5 };
+    const cam = { x: lerp(q[0], p[0], alpha), y: lerp(q[1], p[1], alpha), z: lerp(q[2], p[2], alpha), yaw: this.yaw, pitch: this.pitch, speed: Math.hypot(p[3], p[5]), ground: p[9] > 0.5, vy: p[4], side: p[3] * Math.cos(this.yaw) - p[5] * Math.sin(this.yaw) };
     let frame = null, color = 0xffffff;
     if (w.recorder) { frame = w.recorder.rec.volume; color = 0xff8a5a; }
     else if (this.pinned) { frame = this.pinned; color = SLOT_HEX[this.selected % 6]; }
     else if (this.frameMode) { frame = this.previewVolume(); color = 0xe8c88a; }
     this.renderer.render({ world: w, dt, cam, found: this.director.found, ui: { frame, frameColor: color, recording: !!w.recorder, selected: this.selected, showVolumes: this.showVolumes, showTraj: this.showTraj } });
   }
+  /** One line of cause for what the Recollector is looking at: what it listens to, and which history is answering. */
+  whyText(x) {
+    if (!x || !(x.inputs.length || x.contributions.length > 1)) return '';
+    const bits = x.inputs.map((i) => {
+      const src = i.layers.filter((l) => l.value > 0.5).map((l) => (l.layer === 0 ? 'now' : `rec ${l.slot + 1}`) + (l.heldBy?.length ? ` via ${l.heldBy.map((h) => (h === 0 ? 'you' : 'rec ' + h)).join('+')}` : ''));
+      return `${i.negated ? '¬' : ''}${i.id} ${i.pass ? '●' : '○'}${src.length ? ' (' + src.join(', ') + ')' : ''}`;
+    });
+    const tags = [x.sealed && 'sealed', x.pinned !== null && x.pinned !== undefined && 'pinned', x.overruled && 'overruled', x.echoDriven && 'answered by an echo'].filter(Boolean);
+    return [x.inputs.length ? `${x.logic === 'or' ? 'any of' : 'all of'}: ${bits.join(' · ')}` : '', tags.join(' · ')].filter(Boolean).join('  —  ');
+  }
   hudModel(tone) {
     const w = this.world;
     const { o, d } = this.aimRay();
     const hit = this.aimHit(40);
     const pick = w.pick(o, d, hit.t ?? 40);
-    let aimLabel = '', cmp = null;
+    let aimLabel = '', aimWhy = '', cmp = null;
     if (pick && (hit.t === null || pick.t <= hit.t + 0.05) && pick.item.def.type !== 'wall') {
       cmp = w.compare(pick.item.id);
       aimLabel = pick.item.echo ? `rec ${pick.item.layer} ▸ ${pick.item.def.type}` : pick.item.def.type;
       if (pick.item.type.interact && !pick.item.echo) aimLabel += ' — E';
+      aimWhy = this.whyText(w.explain(pick.item.id));
     }
     const tape = this.director.nearbyTape();
     const legend = this.legend(tone, tape);
     return {
-      world: w, level: this.level, ui: { selected: this.selected }, time: this.renderer.clock, aimDist: hit.t, aimLabel, aimCompare: cmp, lensFull: this.lensFull,
+      world: w, level: this.level, ui: { selected: this.selected }, time: this.renderer.clock, aimDist: hit.t, aimLabel, aimWhy, aimCompare: cmp, lensFull: this.lensFull,
       dev: this.dev, perf: { fps: this.fps, ...this.renderer.stats }, legend, sectionIndex: this.director.sectionIndex,
     };
   }

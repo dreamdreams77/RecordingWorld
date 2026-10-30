@@ -211,3 +211,57 @@ export class SoundFieldFX {
     }
   }
 }
+
+/** Short-lived spatial feedback: an expanding shockwave ring plus a spray of sparks. Pooled; no per-frame allocation. */
+export class BurstFX {
+  constructor(scene) {
+    this.rings = []; this.sparks = [];
+    const rg = new THREE.RingGeometry(0.82, 1, 48);
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+      m.visible = false; m.renderOrder = 6; scene.add(m); this.rings.push({ m, t: 1, dur: 1, size: 3, vertical: false });
+    }
+    const N = 96;
+    this.N = N; this.pos = new Float32Array(N * 3); this.vel = new Float32Array(N * 3); this.life = new Float32Array(N); this.cols = new Float32Array(N * 3);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(this.cols, 3));
+    this.points = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.11, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, sizeAttenuation: true }));
+    this.points.frustumCulled = false; this.points.renderOrder = 6; scene.add(this.points);
+    this.cursor = 0; this.ringCursor = 0; this.c = new THREE.Color();
+  }
+  /** kind: colour; size: ring radius in metres; sparks: how many particles. */
+  emit(pos, { color = 0xe8c88a, size = 3, dur = 0.9, sparks = 18, vertical = false, speed = 3 } = {}) {
+    if (!pos) return;
+    const r = this.rings[this.ringCursor++ % this.rings.length];
+    r.m.position.set(pos[0], pos[1], pos[2]); r.m.rotation.set(vertical ? 0 : -Math.PI / 2, 0, 0);
+    r.m.material.color.set(color); r.t = 0; r.dur = dur; r.size = size; r.vertical = vertical; r.m.visible = true;
+    this.c.set(color);
+    for (let i = 0; i < sparks; i++) {
+      const k = this.cursor++ % this.N, a = Math.random() * Math.PI * 2, u = Math.random() * 0.9 + 0.1, s = speed * (0.4 + Math.random());
+      this.pos.set(pos, k * 3);
+      this.vel[k * 3] = Math.cos(a) * s * u; this.vel[k * 3 + 1] = (Math.random() * 0.8 + 0.2) * s; this.vel[k * 3 + 2] = Math.sin(a) * s * u;
+      this.cols[k * 3] = this.c.r; this.cols[k * 3 + 1] = this.c.g; this.cols[k * 3 + 2] = this.c.b;
+      this.life[k] = 0.6 + Math.random() * 0.7;
+    }
+  }
+  update(dt, camera) {
+    for (const r of this.rings) {
+      if (r.t >= 1) continue;
+      r.t += dt / r.dur;
+      if (r.t >= 1) { r.m.visible = false; continue; }
+      const e = 1 - (1 - r.t) ** 3;
+      r.m.scale.setScalar(0.2 + r.size * e); r.m.material.opacity = (1 - r.t) * 0.8;
+      if (r.vertical) r.m.lookAt(camera.position);
+    }
+    let live = false;
+    for (let k = 0; k < this.N; k++) {
+      if (this.life[k] <= 0) { this.cols[k * 3] = this.cols[k * 3 + 1] = this.cols[k * 3 + 2] = 0; continue; }
+      live = true; this.life[k] -= dt;
+      this.vel[k * 3 + 1] -= 6 * dt;
+      for (let j = 0; j < 3; j++) this.pos[k * 3 + j] += this.vel[k * 3 + j] * dt;
+      const f = Math.max(0, this.life[k]) ; this.cols[k * 3] *= 0.97; this.cols[k * 3 + 1] *= 0.97; this.cols[k * 3 + 2] *= 0.97;
+      if (f <= 0) { this.cols[k * 3] = this.cols[k * 3 + 1] = this.cols[k * 3 + 2] = 0; }
+    }
+    if (live) { this.points.geometry.attributes.position.needsUpdate = true; this.points.geometry.attributes.color.needsUpdate = true; }
+  }
+}

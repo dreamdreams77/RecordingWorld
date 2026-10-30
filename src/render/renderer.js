@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { MaterialLibrary } from './materials.js';
 import { EntityViews, LightPool } from './entities.js';
-import { BeamFX, ConflictFX, FrameFX, RecordingFX, SoundFieldFX } from './fx.js';
+import { BeamFX, ConflictFX, FrameFX, RecordingFX, SoundFieldFX, BurstFX } from './fx.js';
 import { levelBounds } from './scenery.js';
 import { PostFX } from './postfx.js';
 import { Props } from './props.js';
@@ -88,7 +88,7 @@ export class GameRenderer {
     this.lights = new LightPool(this.scene, this.q.lights);
     this.views = new EntityViews(this.scene, this.lib, this.lights, this.q);
     this.beams = new BeamFX(this.scene); this.conflicts = new ConflictFX(this.scene, this.lib.time);
-    this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene);
+    this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene); this.burstFx = new BurstFX(this.scene);
     this.props = new Props(this.scene, this.lib, this.theme, this.level);
     this.soundField = level.sound ? new SoundFieldFX(this.scene, levelBounds(level)) : null;
     if (this.q.reflections) this.setupReflection();
@@ -170,6 +170,7 @@ export class GameRenderer {
   }
 
   // -------------------------------------------------------------- per frame
+  burst(pos, opts) { if (this.settings.flashReduction && opts) opts = { ...opts, sparks: (opts.sparks ?? 18) >> 1 }; this.burstFx?.emit(pos, opts); }
   pulse(a = 0.18) { this.flash = Math.max(this.flash, this.settings.flashReduction ? a * 0.2 : a); }
 
   /**
@@ -189,9 +190,17 @@ export class GameRenderer {
     } else {
       this.bob += (c.speed / 4.9) * dt * 9.5 * (c.ground ? 1 : 0);
       const bobAmt = this.settings.headBob && !this.settings.reducedMotion ? 0.035 : 0;
-      cam.position.set(c.x, c.y - 0.9 + EYE_HEIGHT + Math.sin(this.bob) * bobAmt, c.z);
-      cam.rotation.set(c.pitch, c.yaw, 0, 'YXZ');
-      cam.fov = this.settings.fov;
+      // game feel: a dip when landing, a lean into strafes and a slight widening of the view at speed
+      const calm = this.settings.reducedMotion;
+      if (c.ground && !this.wasGround && this.lastVy < -2.5 && !calm) this.dip = Math.min(0.16, -this.lastVy * 0.014);
+      this.wasGround = c.ground; this.lastVy = c.vy ?? 0;
+      this.dip = (this.dip ?? 0) * Math.exp(-dt * 9);
+      const side = calm ? 0 : (c.side ?? 0);
+      this.roll = (this.roll ?? 0) + (side * -0.0045 - (this.roll ?? 0)) * Math.min(1, dt * 8);
+      this.kick = (this.kick ?? 0) + ((calm ? 0 : Math.min(1, c.speed / 6)) - (this.kick ?? 0)) * Math.min(1, dt * 4);
+      cam.position.set(c.x, c.y - 0.9 + EYE_HEIGHT + Math.sin(this.bob) * bobAmt - this.dip, c.z);
+      cam.rotation.set(c.pitch, c.yaw, this.roll, 'YXZ');
+      cam.fov = this.settings.fov + this.kick * 3;
     }
     cam.updateProjectionMatrix();
     // lights follow the player (snapped to avoid shadow shimmer)
@@ -208,6 +217,7 @@ export class GameRenderer {
     this.frameFx.set(fs.ui.frame, fs.ui.frameColor ?? 0xffffff, fs.ui.recording, this.clock);
     this.props.update(this.clock, fs.found ?? new Set());
     this.soundField?.update(world, this.clock);
+    this.burstFx?.update(dt, this.camera);
     this.lights.flush(cam.position);
     // post parameters: interference grows with conflicts and lost coherence
     let incoh = 0; for (const pb of world.playbacks) if (pb?.active) incoh = Math.max(incoh, 1 - pb.coherence);

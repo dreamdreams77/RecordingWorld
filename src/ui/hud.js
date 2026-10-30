@@ -21,7 +21,7 @@ export class HUD {
         <path d="M0-30V-20M0 30V20M-30 0H-20M30 0H20" stroke-opacity=".9"/><path d="M-10-24h20M-10 24h20" stroke-opacity=".35"/>
         <path d="M-24-10v20M24-10v20" stroke-opacity=".35"/><path id="ret-arc" d="" stroke="#ffb04d" stroke-width="2.2"/>
       </svg>
-      <div id="range" class="tiny"></div><div id="aimlabel" class="tiny"></div>
+      <div id="range" class="tiny"></div><div id="aimlabel" class="tiny"></div><div id="aimwhy" class="tiny"></div>
       <div id="folio" class="panel"><div class="num"></div><div class="tiny" id="f-kicker"></div><div class="ttl"></div><div class="obj"></div><div class="hint"></div></div>
       <div id="recbar" class="panel"><span class="dot"></span><span id="rec-t">REC</span><div class="tiny" id="rec-v"></div><div class="cap"><i></i></div></div>
       <div id="ticker" class="panel tiny"></div>
@@ -82,6 +82,7 @@ export class HUD {
     // reticle + rangefinder
     this.q('#range').textContent = m.aimDist !== null ? `${m.aimDist.toFixed(2)} m` : '';
     this.q('#aimlabel').textContent = m.aimLabel ?? '';
+    this.q('#aimwhy').textContent = m.aimWhy ?? '';
     this.q('#ret-ring').style.transform = `rotate(${(m.time * 20) % 360}deg)`;
     // ticker
     const rec = world.recorder;

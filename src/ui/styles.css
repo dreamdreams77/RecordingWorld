@@ -25,6 +25,7 @@ canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: 
 #reticle { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; }
 #range { position: absolute; left: calc(50% + 40px); top: calc(50% - 7px); color: var(--text); text-shadow: 0 0 6px #000; white-space: nowrap; }
 #aimlabel { position: absolute; left: calc(50% + 40px); top: calc(50% + 8px); color: var(--line-hi); white-space: nowrap; text-shadow: 0 0 6px #000; }
+#aimwhy { position: absolute; left: calc(50% + 40px); top: calc(50% + 26px); color: var(--dim); white-space: nowrap; text-shadow: 0 0 6px #000; font-size: 11px; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
 
 /* folio (top-left) */
 #folio { left: 18px; top: 16px; width: 340px; }
