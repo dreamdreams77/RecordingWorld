@@ -40,6 +40,9 @@ E.push(wall('fk_endA', [-10, 0, -150], [-7, 9, -149]), wall('fk_endB', [-2, 0, -
   wall('fk_lintW', [-7, 3.6, -150], [-2, 9, -149]), wall('fk_lintE', [2, 3.6, -150], [7, 9, -149]), wall('fk_cap', [-10, 0, -165], [10, 9, -164]));
 E.push(door('doorW', [-7, 0, -149.7], [-2, 3.6, -149.3], [0, 3.75, 0], { in: ['ledW'], skin: 'door' }), door('doorE', [2, 0, -149.7], [7, 3.6, -149.3], [0, 3.75, 0], { in: ['ledE'], skin: 'door' }));
 
+E.push({ id: 'survE', type: 'actor', era: 'past', pos: [4, 0, -108], startOn: 'tape', path: [[0, 4, -108], [270, 4, -125]], tones: [[0, 60, 3], [70, 130, 5], [140, 200, 3], [210, 270, 6]] });
+E.push({ id: 'survW', type: 'actor', era: 'past', pos: [-4, 0, -108], startOn: 'tape', path: [[0, -4, -108], [270, -4, -125]], tones: [[0, 60, 1], [70, 130, 6], [140, 200, 3], [210, 270, 5]] });
+
 function gateEntity(id, ins) { return { id, type: 'gate', op: 'logic', in: ins, pos: [0, -50, 0] }; }
 
 const stairScript = Array.from({ length: 9 }, (_, i) => ({ t: 10 + i * 14, id: `stair${i}`, set: { tgt: 1 } }));
@@ -84,8 +87,8 @@ export default {
     { id: 'stair', name: 'The Vestibule Stair', keep: stairScript.map((s) => s.id), volume: { x0: -5, x1: 5, y0: -1, y1: 9, z0: -22, z1: -10 }, ticks: 330, script: stairScript },
     { id: 'operator', name: 'The Last Operator', keep: ['op'], volume: { x0: -5, x1: 5, y0: -1, y1: 7, z0: -52, z1: -42 }, ticks: 240 },
     { id: 'spanX', name: 'Survey East Span', keep: ['deckX'], volume: { x0: -4, x1: 4, y0: -3, y1: 9, z0: -84, z1: -70 }, ticks: 300, script: [{ t: 10, id: 'deckX', set: { tgt: 1 } }] },
-    { id: 'forkE', name: 'Charter of the Archive', keep: [], volume: { x0: -7, x1: 7, y0: -8, y1: 3, z0: -127, z1: -107 }, ticks: 200, script: [{ t: 10, id: 'forkE', set: { tgt: 1 } }] },
-    { id: 'forkW', name: 'Charter of the Observatory', keep: [], volume: { x0: -7, x1: 7, y0: -8, y1: 3, z0: -127, z1: -107 }, ticks: 200, script: [{ t: 10, id: 'forkW', set: { tgt: 1 } }] },
+    { id: 'forkE', name: 'Charter of the Archive', keep: ['survE'], volume: { x0: -7, x1: 7, y0: -8, y1: 3, z0: -127, z1: -107 }, ticks: 460, script: [{ t: 10, id: 'forkE', set: { tgt: 1 } }, { t: 150, id: 'survE', set: { active: 1 } }] },
+    { id: 'forkW', name: 'Charter of the Observatory', keep: ['survW'], volume: { x0: -7, x1: 7, y0: -8, y1: 3, z0: -127, z1: -107 }, ticks: 460, script: [{ t: 10, id: 'forkW', set: { tgt: 1 } }, { t: 150, id: 'survW', set: { active: 1 } }] },
     { id: 'spanY', name: 'Survey West Span', keep: ['deckY'], volume: { x0: -4, x1: 4, y0: -3, y1: 9, z0: -92, z1: -78 }, ticks: 300, script: [{ t: 10, id: 'deckY', set: { tgt: 1 } }] },
   ],
   discoveries: [

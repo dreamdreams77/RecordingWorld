@@ -4,6 +4,9 @@ import { wall, floor, door, bridge, plate, button, gate, flywheel, resonator, la
 const E = [];
 
 // ---- A: plate (echo)
+// the person you chose to remember in Chapter III is waiting in the first hall
+E.push({ id: 'witnessA', type: 'actor', ifCanon: { key: 'ch3', is: 'archive' }, pos: [6.5, 0, -2], yaw: Math.PI / 2, path: [[0, 6.5, -2], [99999, 6.5, -2]], tones: [[40, 100, 3], [110, 170, 5], [180, 240, 3], [250, 310, 6], [320, 380, 1]], loop: false });
+E.push({ id: 'witnessO', type: 'actor', ifCanon: { key: 'ch3', is: 'observatory' }, pos: [6.5, 0, -2], yaw: Math.PI / 2, path: [[0, 6.5, -2], [99999, 6.5, -2]], tones: [[40, 100, 1], [110, 170, 6], [180, 240, 3], [250, 310, 5], [320, 380, 4]], loop: false });
 E.push(...room('a', { zS: 8, zN: -28, doorId: 'door1', doorIn: ['p61'] }));
 E.push(plate('p61', [-5, 0, -12]));
 // ---- B: overspeed
@@ -36,6 +39,8 @@ E.push(floor('d_near', [-14, -3, -100 + D], [14, 0, -90 + D]), floor('d_far', [-
 E.push(gate('metro6', 'osc', [], { period: 200, duty: 0.1, phase: 0 }));
 E.push(lamp('metroLamp6', [-7, 3.2, -95 + D], ['metro6'], { power: 8, range: 12 }), emitter('metroSnd6', [7, 3.2, -95 + D], 7, { in: ['metro6'], range: 14 }));
 E.push(plate('cradle', [0, 0, -128 + D], [3.4, 0.12, 3.4], { need: 2 }));
+E.push({ id: 'archivist', type: 'actor', pos: [3.4, 0, -165], startOn: 'section:d', yaw: 0, path: [[0, 3.4, -165], [99999, 3.4, -165]], tones: [] });
+E.push({ id: 'archivist2', type: 'actor', pos: [3.4, 0, -165], startOn: 'finale', hideAt: 330, path: [[0, 3.4, -165], [240, 0.9, -163.5], [330, 0.9, -163.5]], tones: [[100, 200, 3]] });
 E.push(wall('d_cap', [-13, 0, -143 + D], [13, 14, -142 + D]));
 
 export default {
@@ -65,6 +70,7 @@ export default {
       objective: 'Cross the void, then stand where you stood — both of you.',
       hint: 'Record the spans on three beats (800 ticks apart), play all with U, cross. On the cradle: record yourself, step off, play it, step back on. The cradle wants two bodies.' },
   ],
+  events: [{ on: 'section:d', actors: ['archivist'] }, { on: 'finale', actors: ['archivist2'] }],
   finale: { signal: 'cradle' },
   discoveries: [
     { id: 'ch6-d1', pos: [-8, 1, 6], title: 'Log 0051 — Recording Zero', text: 'The first recording was not of a room. It was of the last day, all of it, for everyone, in one take.' },

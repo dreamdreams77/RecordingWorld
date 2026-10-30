@@ -59,6 +59,7 @@ export class World {
     for (const def of level.entities ?? []) {
       if (def.era && def.era !== this.era) continue;
       if (def.era === 'past' && opts.keep && !opts.keep.includes(def.id)) continue;
+      if (def.ifCanon && opts.canon?.[def.ifCanon.key] !== def.ifCanon.is) continue; // consequences of earlier choices
       this.addEntity(this.era === 'past' && def.past ? { ...def, ...def.past } : def);
     }
     if (!opts.noPlayer && level.spawn) {

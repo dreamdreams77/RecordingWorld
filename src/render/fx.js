@@ -25,7 +25,7 @@ export class BeamFX {
   update(world, time) {
     let n = 0;
     for (const b of world.beams) {
-      const col = b.layer === 0 ? 0xdff3ff : SLOT_HUES[(b.layer - 1) % SLOT_HUES.length];
+      const col = b.layer === 0 ? [0xdff3ff, 0xff4a4a, 0x58ff8a, 0x5a7aff][b.hue ?? 0] : SLOT_HUES[(b.layer - 1) % SLOT_HUES.length];
       for (let i = 0; i + 1 < b.pts.length; i++) {
         const a = b.pts[i], c = b.pts[i + 1];
         const dx = c[0] - a[0], dy = c[1] - a[1], dz = c[2] - a[2], len = Math.hypot(dx, dy, dz);

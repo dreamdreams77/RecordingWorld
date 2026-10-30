@@ -44,7 +44,7 @@ export class Director {
     for (const x of this.experiments) {
       if (!this.done.has(x.id) && (w.R.get(x.signal) ?? 0) > 0.5) { this.done.add(x.id); this.say('experiment', { experiment: x }); }
     }
-    if (!this.completed && this.level.finale && (w.R.get(this.level.finale.signal) ?? 0) > 0.5) { this.completed = true; this.say('complete', { finale: true }); }
+    if (!this.completed && this.level.finale && (w.R.get(this.level.finale.signal) ?? 0) > 0.5) { this.completed = true; this.applyEvents('finale'); this.say('complete', { finale: true }); }
     if (!this.completed) { const xi = this.exitBoxes.findIndex((b) => containsPoint(b, p[0], p[1], p[2])); if (xi >= 0) { this.completed = true; this.exitIndex = xi; this.say('complete', { exit: this.level.exits?.[xi]?.id }); } }
   }
   enterSection(i) {

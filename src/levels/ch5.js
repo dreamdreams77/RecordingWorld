@@ -47,6 +47,7 @@ E.push(sensor('Sr', [0, Y + 1.2, -117], { hue: 1, hold: 150, facing: Math.PI }),
   E.push(gate(`w${k}`, 'osc', [], { period: 600, duty: 0.4, phase: k === 'R' ? 0 : k === 'G' ? 400 : 200 }));
   E.push(door(`sh${k}`, a, b, mv, { in: [`w${k}`], skin: 'door', speed: 1.5 }));
 });
+E.push({ id: 'op5', type: 'actor', pos: [7.5, Y, -110], startOn: 'section:d', yaw: Math.PI / 2, hideAt: 4000, path: [[0, 7.5, -110], [900, 7.5, -139], [1500, 7.5, -139]], tones: [[200, 260, 1], [300, 360, 2], [400, 460, 3]] });
 E.push(gate('allLit', 'logic', ['Sr', 'Sg', 'Sb']), gate('allHold', 'hold', ['allLit'], { ticks: 600 }));
 E.push(wall('p_endL', [-10, Y, -143], [-2.2, Y + 12, -142]), wall('p_endR', [2.2, Y, -143], [10, Y + 12, -142]), wall('p_lint', [-2.2, Y + 3.6, -143], [2.2, Y + 12, -142]));
 E.push(door('doorP', [-2.2, Y, -142.7], [2.2, Y + 3.6, -142.3], [0, 3.75, 0], { in: ['allHold'], skin: 'door' }));
@@ -77,6 +78,7 @@ export default {
       objective: 'Light red, green and blue together.',
       hint: 'Record one full ten-second cycle of the sensors (stay clear of the beams), then play it OFFSET from the present by half a cycle — scrub to the middle (, .) before pressing T, or wait 5 s and press T. Two histories, half a cycle apart, can agree where one cannot.' },
   ],
+  events: [{ on: 'section:d', actors: ['op5'] }],
   exit: { box: [-10, 17, -160, 10, 26, -148] },
   discoveries: [
     { id: 'ch5-d1', pos: [-8, 1, 6], title: 'Log 0041 — Starlight', text: 'I measured the sky for four thousand hours. It never moved. I decided the instrument was broken.' },

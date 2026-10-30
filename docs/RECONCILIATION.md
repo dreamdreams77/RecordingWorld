@@ -43,8 +43,28 @@ Each tick the world is the union of the **present layer** and one **echo layer p
 | R7 | **Coherence** | each playback | Overlapping matter from different histories (other than the same entity) drains the involved playbacks' coherence in proportion to overlap volume; coherence regenerates when calm. At zero the echo **collapses** (the recording is kept). Low coherence shows as dropout bands and screen tearing. |
 | R8 | **Ownership** | all | The same id in several layers is one logical entity with several histories; its state disagreement is reported as a `state` conflict (gold outline in game, listed in the inspector). |
 
+| R9 | **Canon outranks apocrypha** | ledgers (`World.canonize`) | Entering a recording in a *ledger* makes its final frame **present reality**: tracked present entities adopt the recorded state (sliders are pinned there — even pinned shut), history-only matter is built for real, and every id the recording touched is **sealed**: it ignores all echoes of itself from then on. This is the only way history can *subtract* (besides negated wires). It is consumed from the slot, recoverable only by rewinding (F6) or rolling the slot back. |
+| R10 | **History does not wear** | `crumble` | A crumbling floor wears out under load in the present (and stays worn). An echo of it keeps the integrity it was recorded with, so a recording of the intact floor, held, carries weight the present floor can no longer bear. |
+| R11 | **Hazards are matter that hurts** | hazard sliders | Any history's hazard zaps present bodies on contact. Echoes of hazards are not safer than the present. |
+
 Sinks (`slider`, `flywheel`, `gate`, `lamp`, `emitter`, `beam`, `conveyor`, `mirror`) read the *previous tick's*
 reconciled signals (`def.in`, AND by default, `logic:'or'` for OR, `!` prefix to negate).
+
+## Time as a control
+
+Playback has a signed **rate** (0.25–4×), a **head** that can be scrubbed, and modes `once / loop / ping-pong / hold`; `U` starts
+every slot on the same tick. Machinery cares about all of these: the *tempo locks* (`resonator.tempo`) accept a melody only when
+its notes arrive 20–36 ticks apart, so a carillon recorded and played in reverse at ×2 (or slowed to ×0.25) opens locks the
+forward recording never could; the Prism Hall needs two histories half a cycle apart (scrub the head to the middle); the beat bridges
+need recordings started 800 ticks apart. `hold` is how history persists; `reverse` is how a descent becomes an ascent.
+
+## Recovery
+
+* **Recording rollback** — every slot keeps its last four takes (overwrite, erase, tape load, canonisation): `Shift+Backspace`.
+* **Rewind (F6)** — `World.capture()/reinstate()` snapshot the whole world every 5 s and before every ledger decision (recordings are
+  immutable and shared, so captures are cheap); the oldest of the last 24 captures is two minutes back.
+* **Section reset (Shift+K)** — restores the world as it was when the section began, keeping the recordings you made; the reset itself can be rewound.
+* `K` returns to the checkpoint and recalls crates; checkpoints are saved automatically when a section begins.
 
 ## Archive tapes
 

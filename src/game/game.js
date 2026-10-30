@@ -36,6 +36,7 @@ export class Game {
     this.sb = { item: 0, note: 1, link: null };
     this.coach = { step: 0, t: 0 };
     this.cine = null;
+    this.rewinds = []; this.sectionCaps = {}; this.lastCap = 0;
     this.renderer = new GameRenderer(this.canvas, this.settings);
     this.canvas.addEventListener('click', () => { if (this.state === 'play' && !this.input.locked) this.input.lock(); });
     addEventListener('resize', () => this.resize());
@@ -95,8 +96,11 @@ export class Game {
     const level = LEVELS[id];
     this.state = 'loading'; this.cine = null; this.renderer.cinematic = null; this.renderer.setEmulsion(0, 0); this.coach = { step: 0, t: 0 }; this.sb.link = null;
     this.level = level;
-    this.world = new World(level, { caps: { modes: level.caps.modes } });
+    this.progress.canon ??= {};
+    this.world = new World(level, { caps: { modes: level.caps.modes }, canon: this.progress.canon });
     this.director = new Director(this.world, level, this.progress.levels[id]);
+    this.rewinds = []; this.sectionCaps = {}; this.lastCap = 0;
+    this.applyPerks();
     if (snapshot) {
       this.world.restore(snapshot.world);
       this.director.found = new Set(snapshot.found); this.director.done = new Set(snapshot.done);
@@ -119,6 +123,40 @@ export class Game {
     if (!snapshot && this.director.sectionIndex <= 0) this.hud.say(level.narrative?.intro ?? this.director.section?.intro ?? '', 'THE ARCHIVIST', 8000);
     this.acc = 0; this.last = performance.now();
   }
+  /** Choices made in earlier chapters change what the Recollector can do (and who is waiting for you). */
+  applyPerks() {
+    const w = this.world, c = this.progress.canon?.ch3;
+    this.perk = null;
+    if (!c || this.level.sandbox || this.level.index < 4) return;
+    if (c === 'archive') { w.setSlots(w.caps.slots + 1); this.perk = 'Archive canon: one extra recording slot'; }
+    if (c === 'observatory') { w.caps.maxVolume = w.caps.maxVolume.map((v) => v * 1.25); this.perk = 'Observatory canon: recording volumes 25% larger'; }
+  }
+  pushRewind() {
+    this.rewinds.push(this.world.capture());
+    if (this.rewinds.length > 24) this.rewinds.shift();
+    this.lastCap = this.world.tick;
+  }
+  /** F6: step back through automatic captures (every 5 s, and before every ledger decision). */
+  rewind() {
+    const w = this.world, now = w.tick;
+    while (this.rewinds.length && now - this.rewinds[this.rewinds.length - 1].tick < 90) this.rewinds.pop();
+    const c = this.rewinds.pop();
+    if (!c) { this.hud.toast('Nothing earlier to rewind to yet.', 'warn'); return; }
+    w.reinstate(c); this.director.update(); this.lastCap = w.tick;
+    this.hud.toast(`Rewound ${((now - c.tick) / 60).toFixed(0)} s. ${this.rewinds.length} earlier state${this.rewinds.length === 1 ? '' : 's'} remain.`, 'good', 'REWIND');
+    this.audio?.event('rewind'); this.renderer.pulse(0.25);
+  }
+  /** Shift+K: put the whole section back as it was when you entered it (the reset itself can be rewound). */
+  resetSection() {
+    const cap = this.sectionCaps[this.director.sectionIndex];
+    if (!cap) { this.restartSection(); return; }
+    this.pushRewind();
+    const keep = this.world.recordings.slice();   // experiments should survive a reset: keep what you recorded
+    this.world.reinstate(cap);
+    keep.forEach((r, i) => { if (r && !this.world.recordings[i]) this.world.loadRecording(i, r); });
+    this.hud.toast('Section restored to how you found it. Your recordings were kept. F6 undoes this.', 'good', 'SECTION RESET');
+    this.audio?.event('rewind'); this.renderer.pulse(0.25);
+  }
   pause() { if (this.state !== 'play') return; this.state = 'pause'; this.input.unlock(); this.menus?.show('pause'); this.audio?.suspend(true); }
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.menus?.hide(); this.input.lock(); this.audio?.suspend(false); this.last = performance.now(); }
   quickSave() {
@@ -138,7 +176,9 @@ export class Game {
   processDirector() {
     for (const m of this.director.drain()) {
       switch (m.kind) {
+        case 'event': this.hud.say(m.text, m.who ?? 'THE ARCHIVIST'); break;
         case 'section': {
+          this.sectionCaps[m.index] = this.world.capture();
           this.hud.setFolio(this.level, m.section); this.hud.showHint(this.settings.hints && false);
           if (m.index > 0 || this.state !== 'loading') this.hud.say(m.section.intro, 'THE ARCHIVIST');
           this.audio?.event('section');
@@ -264,7 +304,8 @@ export class Game {
     if (I.hit('Tab')) this.lensFull = !this.lensFull;
     if (I.hit('KeyH')) this.hud.showHint(!this.hud.q('#folio .hint').textContent);
     if (I.hit('F5')) this.quickSave();
-    if (I.hit('KeyK')) this.restartSection();
+    if (I.hit('KeyK')) { if (I.held('ShiftLeft', 'ShiftRight')) this.resetSection(); else this.restartSection(); }
+    if (I.hit('F6')) this.rewind();
     for (let n = 0; n < 6; n++) if (I.hit(`Digit${n + 1}`) && n < w.caps.slots) { this.selected = n; this.audio?.event('select'); }
     if (I.hit('KeyQ')) { this.frameMode = !this.frameMode; this.audio?.event('select'); }
     // frame: wheel resizes, click pins, right click clears
@@ -292,7 +333,10 @@ export class Game {
     if (I.hit('KeyY')) { w.stop(this.selected); this.audio?.event('stop'); }
     if (I.hit('KeyG')) w.reverse(this.selected);
     if (I.hit('KeyL')) { const m = w.cycleMode(this.selected); if (m) this.hud.toast(`slot ${this.selected + 1}: ${m}`, ''); }
-    if (I.hit('Backspace')) { if (w.recordings[this.selected]) { w.eraseRecording(this.selected); this.hud.toast(`slot ${this.selected + 1} erased`, 'warn'); } }
+    if (I.hit('Backspace') && I.held('ShiftLeft', 'ShiftRight')) {
+      const r = w.rollbackRecording(this.selected);
+      this.hud.toast(r ? `Slot ${this.selected + 1}: restored “${r.name}” (${w.undo[this.selected].length} earlier take${w.undo[this.selected].length === 1 ? '' : 's'} left).` : 'No earlier take in this slot.', r ? 'good' : 'warn', 'ROLLBACK');
+    } else if (I.hit('Backspace')) { if (w.recordings[this.selected]) { w.eraseRecording(this.selected); this.hud.toast(`slot ${this.selected + 1} erased`, 'warn'); } }
     if (I.hit('BracketLeft') && pb) { const i = RATES.indexOf(Math.abs(pb.rate)); w.setRate(this.selected, RATES[Math.max(0, i - 1)]); }
     if (I.hit('BracketRight') && pb) { const i = RATES.indexOf(Math.abs(pb.rate)); w.setRate(this.selected, RATES[Math.min(RATES.length - 1, i + 1)]); }
     const sh = I.held('ShiftLeft', 'ShiftRight') ? 4 : 1;
@@ -301,8 +345,9 @@ export class Game {
     // interact / tape pedestals
     if (I.hit('KeyE')) {
       const tape = this.director.nearbyTape();
-      if (tape && !w.aimedInteractable()) this.director.loadTape(tape, this.selected);
-      else this.pendingInteract = true;
+      const aimed = w.aimedInteractable();
+      if (tape && !aimed) this.director.loadTape(tape, this.selected);
+      else { if (aimed?.type.name === 'ledger') this.pushRewind(); this.pendingInteract = true; }
     }
     if (I.hit('KeyU')) { const n = w.playAll({ mode: w.playbacks.find((p) => p)?.mode }); if (n) { this.audio?.event('play'); this.hud.toast(`${n} recordings started on the same tick`, 'good'); } }
     if (I.hit('KeyP') && this.settings.devMode) this.showVolumes = !this.showVolumes;
@@ -376,13 +421,14 @@ export class Game {
     const jump = I.held('Space');
     while (this.acc >= 1 / 60 && steps < 6) {
       this.prev.set(w.player.st);
-      w.step({ mx, mz, jump, interact: this.pendingInteract, tone, yaw: this.yaw, pitch: this.pitch });
+      w.step({ mx, mz, jump, interact: this.pendingInteract, tone, yaw: this.yaw, pitch: this.pitch, slot: this.selected });
       this.pendingInteract = false;
       this.director.update();
       this.handleEvents();
       this.acc -= 1 / 60; steps++;
     }
     if (steps === 6) this.acc = 0;
+    if (w.tick - this.lastCap >= 300 && !w.recorder) this.pushRewind();
     this.processDirector();
     this.cur.set(w.player.st);
     this.audio?.update(w, this.renderer.camera, dt, { tone });
@@ -430,12 +476,25 @@ export class Game {
     if (w.playbacks.filter((p) => p?.active).length >= 3) this.react('n-three', 'Three histories at once. Some rooms are now more past than present.');
     if (this.progress.stats.deaths >= 5) this.react('n-falls', 'Falling is only a short recording you did not intend to make.');
   }
+  onCanon(e) {
+    const spec = this.level.canon?.[e.source];
+    if (spec) { this.progress.canon[spec.key] = spec.value; saveProgress(this.progress); }
+    this.teach('r-canon', 'RULE — CANON', 'A history entered in the ledger becomes real: its final frame is now the present, and every object it touched stops listening to any other history. Only rewinding (F6) can undo it.', 'warn');
+    this.hud.toast(`“${e.name}” is now the record. ${e.built.length ? `Built: ${e.built.join(', ')}. ` : ''}${e.adopted.length ? `Adopted: ${e.adopted.join(', ')}.` : ''}`, 'disc', 'CANON', 12000);
+    this.audio?.event('canon'); this.renderer.pulse(0.45); this.hud.flash(0.3);
+    if (spec) this.hud.say(spec.value === 'archive' ? 'You chose the Archive. Somewhere the Observatory is a story nobody finished.' : 'You chose the Observatory. Somewhere the Archive is a room nobody opened.', 'THE ARCHIVIST', 9000);
+  }
   handleEvents() {
     for (const e of this.world.drainEvents()) {
       switch (e.type) {
         case 'fell': case 'crushed': this.progress.stats.deaths++; this.hud.toast(e.type === 'fell' ? 'Temporal shock: returned to the last checkpoint.' : 'Crushed between histories. Returned to checkpoint.', 'warn'); this.audio?.event('shock'); this.renderer.pulse(0.3); this.yaw = this.world.checkpoint.yaw; break;
         case 'collapse': this.teach('r-collapse', 'COLLAPSE', 'Coherence reached zero. The echo is gone but the recording is intact. History can be replayed; it just cannot be forced.', 'warn'); this.hud.toast(`Recording ${e.slot + 1} lost coherence and collapsed. It is still stored — replay it more carefully.`, 'warn'); this.audio?.event('collapse'); this.renderer.pulse(0.2); break;
         case 'record-stop': this.hud.toast(`Recording ${e.slot + 1} stored — ${(e.ticks / 60).toFixed(1)} s, ${e.keyframes} keyframes.`, 'good'); break;
+        case 'zapped': this.progress.stats.deaths++; this.teach('r-hazard', 'HAZARD', 'Moving hazards are matter that hurts. Echoes of hazards hurt too — history is not safer than the present.', 'warn'); this.hud.toast('Zapped. Returned to the last checkpoint.', 'warn'); this.audio?.event('shock'); this.renderer.pulse(0.3); this.yaw = this.world.checkpoint.yaw; break;
+        case 'ledger-empty': this.hud.toast('The ledger needs a recording. Select a slot that holds a history (1–6) and press E again.', 'warn'); break;
+        case 'ledger-refuse': this.hud.toast('This ledger does not recognise that history. It records only the charter whose bridge leads here.', 'warn', 'LEDGER'); break;
+        case 'canon': this.onCanon(e); break;
+        case 'rollback': break;
         case 'record-empty': this.hud.toast('The volume was empty — nothing was recorded. Pin the frame around something (Q, aim, click).', 'warn'); break;
         case 'crate-lost': this.hud.toast('A crate fell out of reality and was recalled.', 'warn'); break;
         case 'lever-on': case 'lever-off': case 'mirror-turn': this.audio?.event('lever'); break;
@@ -481,6 +540,7 @@ export class Game {
     if (w.level.id !== 'ch1' || this.director.sectionIndex >= 0) parts.push(k('E', 'use'));
     if (w.level.sound || w.level.id !== 'ch1') parts.push(k('Z–M', `voice${tone ? ' ' + NOTE_NAMES[tone - 1] : ''}`));
     if (tape) parts.unshift(k('E', `load tape: ${tape.name}`));
+    parts.push(k('F6', `rewind (${this.rewinds.length})`));
     if (this.level.sandbox) parts.push(k('B', `item: ${SPAWNABLE[this.sb.item].label}`), k('J', `note ${NOTE_NAMES[this.sb.note - 1]}`), k('Enter', 'place'), k('F', this.sb.link ? `link ${this.sb.link} →` : 'link'));
     return parts.join('');
   }

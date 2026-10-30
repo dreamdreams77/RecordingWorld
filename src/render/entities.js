@@ -9,6 +9,7 @@ import { PLAYER_SIZE } from '../sim/types.js';
 
 const NOTE_HUES = [0xff5a5a, 0xffa13d, 0xffe14d, 0x74e07a, 0x45d6e0, 0x6c86ff, 0xc77dff];
 const _v = new THREE.Vector3(), _c = new THREE.Color();
+const HUE_COLORS = [0xdff3ff, 0xff4a4a, 0x58ff8a, 0x5a7aff];
 
 function box(mat, sx, sy, sz, x = 0, y = 0, z = 0, tile = 4) {
   const m = new THREE.Mesh(boxGeometry(sx, sy, sz, tile), mat);
@@ -35,6 +36,7 @@ const BUILD = {
     return { root, update() {}, static: true };
   },
   slider(L, ctx) {
+    if (L.def.hazard) return BUILD.hazard(L, ctx);
     const d = L.def, s = d.size, isDoor = (d.mode ?? 'door') === 'door';
     const root = new THREE.Group();
     const slab = box(ctx.lib.skin(ctx.theme, isDoor ? 'door' : 'bridge'), s[0], s[1], s[2], 0, 0, 0, ctx.lib.skin(ctx.theme, isDoor ? 'door' : 'bridge').userData.tile);
@@ -215,12 +217,12 @@ const BUILD = {
   sensor(L, ctx) {
     const d = L.def, root = new THREE.Group();
     root.add(box(ctx.lib.skin(ctx.theme, 'metal'), 0.7, 0.7, 0.7, 0, 0, 0, 1));
-    const lm = emissiveMat(0xff6a5a, 1);
+    const lm = emissiveMat(d.hue ? HUE_COLORS[d.hue] : 0xff6a5a, 1);
     const lens = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 12, 28), lm); lens.position.z = 0.36; root.add(lens);
     const eye = new THREE.Mesh(new THREE.CircleGeometry(0.15, 20), emissiveMat(0x000000, 0)); eye.position.z = 0.37; root.add(eye);
     root.position.set(d.pos[0], d.pos[1], d.pos[2]);
     root.rotation.y = d.facing ?? 0;
-    return { root, update(L, ctx, view) { lm.emissiveIntensity = L.st[0] ? 4 : 1; if (view.echoSlot === null) lm.emissive.setHex(L.st[0] ? 0x7fffd0 : 0xff6a5a); } };
+    return { root, update(L, ctx, view) { lm.emissiveIntensity = L.st[0] ? 4 : 1; if (view.echoSlot === null) lm.emissive.setHex(d.hue ? HUE_COLORS[d.hue] : (L.st[0] ? 0x7fffd0 : 0xff6a5a)); } };
   },
   // The Recollector, as seen from outside: a tall lens-column with counter-rotating rings.
   player(L, ctx) {
@@ -237,9 +239,109 @@ const BUILD = {
       root.position.y -= 0.05 + Math.sin(ctx.time * 2 + L.st[0]) * 0.02;
     } };
   },
+  hazard(L, ctx) { // matter that hurts: hot warning stripes and a pulsing core
+    const d = L.def, sz = d.size, root = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x1a0c08, emissive: 0xff5a1f, emissiveIntensity: 2, roughness: 0.4, metalness: 0.6, map: hazardTexture() });
+    mat.map.repeat.set(Math.max(1, sz[0] / 1.2), Math.max(1, sz[2] / 1.2));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sz[0], sz[1], sz[2]), mat); m.castShadow = true; root.add(m);
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(sz[0] * 1.002, Math.min(0.08, sz[1]), sz[2] * 1.002), emissiveMat(0xffd0a0, 1.2)));
+    return { root, update(L, ctx) {
+      const a = L.type.anchor(L.def, L.st); root.position.set(a[0], a[1], a[2]);
+      root.visible = L.st[0] > 0.02;
+      mat.emissiveIntensity = 0.7 + 0.45 * Math.sin(ctx.time * 9); mat.map.offset.x = ctx.time * 0.2;
+    } };
+  },
+  crumble(L, ctx) {
+    const d = L.def, sz = d.size ?? [4, 0.5, 4], root = new THREE.Group();
+    const mat = ctx.lib.skin(ctx.theme, 'bridge').clone();
+    const slab = box(mat, sz[0], sz[1], sz[2], 0, 0, 0, 3); root.add(slab);
+    const crack = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xff7a2a, emissiveIntensity: 0 });
+    const lines = new THREE.Mesh(new THREE.BoxGeometry(sz[0] * 1.004, 0.03, sz[2] * 1.004), crack); lines.position.y = sz[1] / 2 + 0.01; root.add(lines);
+    return { root, update(L, ctx) {
+      const k = L.st[0]; root.visible = k > 0.02;
+      crack.emissiveIntensity = (1 - k) * 4 + L.st[1] * 1.5;
+      const shake = L.st[1] > 0.5 ? 0.03 : 0;
+      root.position.set(d.pos[0] + Math.sin(ctx.time * 80) * shake, d.pos[1] - (1 - k) * 0.25, d.pos[2] + Math.cos(ctx.time * 73) * shake);
+      if (mat.emissive) { mat.emissive.setHex(0xff5a1f); mat.emissiveIntensity = (1 - k) * 0.6; }
+    } };
+  },
+  descender(L, ctx) {
+    const d = L.def, z = d.size, root = new THREE.Group();
+    root.add(box(ctx.lib.skin(ctx.theme, 'bridge'), z[0], z[1], z[2], 0, 0, 0, 3));
+    const cm = emissiveMat(0xffc070, 2.2);
+    for (let i = -1; i <= 1; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 4), cm); c.position.set(i * Math.min(1.6, z[0] / 3), z[1] / 2 + 0.06, 0); c.rotation.x = Math.PI; c.scale.set(1, 0.25, 1); root.add(c); }
+    return { root, update(L, ctx) { const a = L.type.anchor(L.def, L.st); root.position.set(a[0], a[1], a[2]); cm.emissiveIntensity = 1.2 + 1.3 * Math.abs(Math.sin(ctx.time * 2)) * (L.st[0] < 0.99 ? 1 : 0.2); } };
+  },
+  carillon(L, ctx) {
+    const d = L.def, root = new THREE.Group();
+    root.add(box(ctx.lib.skin(ctx.theme, 'metal'), 0.9, 0.5, 0.9, 0, -0.6, 0, 1));
+    const bars = [];
+    for (let i = 0; i < 7; i++) {
+      const mat = emissiveMat(0xffffff, 0), h = 1.3 - i * 0.1;
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, h, 12), mat); bar.position.set(-0.54 + i * 0.18, 0.1 + (1.3 - h) / 2, 0); bar.scale.set(1.2, 1.001, 1.2);
+      const brass = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, h, 12), ctx.lib.skin(ctx.theme, 'crate')); brass.castShadow = true; brass.position.copy(bar.position);
+      root.add(brass, bar); bars.push({ bar, mat, brass });
+    }
+    root.add(box(ctx.lib.skin(ctx.theme, 'crate'), 1.3, 0.1, 0.25, 0, 0.95, 0, 1));
+    root.position.set(d.pos[0], d.pos[1], d.pos[2]);
+    return { root, update(L, ctx) {
+      const n = L.st[1] | 0;
+      bars.forEach((b, i) => { const on = n === i + 1; b.mat.emissive.setHex(NOTE_HUES[i]); b.mat.emissiveIntensity += ((on ? 5 : 0.15) - b.mat.emissiveIntensity) * 0.4; const sw = on ? Math.sin(ctx.time * 40) * 0.05 : 0; b.bar.rotation.z = sw; b.brass.rotation.z = sw; });
+    } };
+  },
+  prism(L, ctx) {
+    const d = L.def, root = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0xcfe8ff, roughness: 0.02, metalness: 0, transparent: true, opacity: 0.62, envMapIntensity: 3, clearcoat: 1, emissive: 0x8fb8ff, emissiveIntensity: 0.25, side: THREE.DoubleSide, depthWrite: false });
+    const prism = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 3), mat); prism.castShadow = true; prism.rotation.y = Math.PI / 6; root.add(prism);
+    root.add(box(ctx.lib.skin(ctx.theme, 'metal'), 0.9, 0.2, 0.9, 0, -0.65, 0, 1));
+    root.position.set(d.pos[0], d.pos[1], d.pos[2]);
+    return { root, update() {} };
+  },
+  filter(L, ctx) {
+    const d = L.def, sz = d.size ?? [0.15, 2.4, 2.4], root = new THREE.Group(), col = HUE_COLORS[(d.hue ?? 1) & 3];
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(sz[0], sz[1], sz[2]), new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.42, roughness: 0.05, emissive: col, emissiveIntensity: 0.6, depthWrite: false, envMapIntensity: 2 })));
+    root.add(box(ctx.lib.skin(ctx.theme, 'metal'), sz[0] + 0.1, 0.08, sz[2] + 0.1, 0, sz[1] / 2, 0, 1), box(ctx.lib.skin(ctx.theme, 'metal'), sz[0] + 0.1, 0.08, sz[2] + 0.1, 0, -sz[1] / 2, 0, 1));
+    root.position.set(d.pos[0], d.pos[1], d.pos[2]);
+    return { root, update() {} };
+  },
+  actor(L, ctx) {
+    const d = L.def, root = new THREE.Group();
+    const tint = d.id.startsWith('archivist') ? 0xffd36a : d.id.startsWith('witness') || d.id.startsWith('surv') ? 0xe8c8a0 : 0xd8c0a0;
+    const pts = []; for (let i = 0; i <= 20; i++) { const t = i / 20; pts.push(new THREE.Vector2(0.05 + Math.sin(Math.pow(t, 0.7) * Math.PI) * 0.24, (t - 0.5) * 1.6)); }
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.35, metalness: 0.85, emissive: tint, emissiveIntensity: 0.12, envMapIntensity: 1.6 });
+    const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 28), bodyMat); body.castShadow = true; root.add(body);
+    const lensM = emissiveMat(tint, 2.5), lens = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 12), lensM); lens.position.set(0, 0.35, 0.18); root.add(lens);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.016, 8, 40), emissiveMat(tint, 1.2)); ring.position.y = -0.2; ring.rotation.x = Math.PI / 2; root.add(ring);
+    return { root, update(L, ctx) {
+      root.visible = L.st[7] > 0.5;
+      root.position.set(L.st[0], L.st[1] + Math.sin(ctx.time * 1.7 + L.st[0]) * 0.03, L.st[2]); root.rotation.y = L.st[3];
+      lensM.emissiveIntensity = 1.6 + (L.st[4] > 0.5 ? 3 + Math.sin(ctx.time * 20) * 1.5 : 0) + L.st[5] * 0.8;
+      ring.rotation.z = ctx.time * 0.8; ring.scale.setScalar(1 + (L.st[4] > 0.5 ? 0.2 * Math.sin(ctx.time * 12) : 0));
+    } };
+  },
+  ledger(L, ctx) {
+    const d = L.def, root = new THREE.Group();
+    root.add(box(ctx.lib.skin(ctx.theme, 'metal'), 0.9, 1.1, 0.9, 0, 0, 0, 1));
+    const book = new THREE.Group(); book.position.y = 0.66; book.rotation.x = -0.35;
+    const pageM = emissiveMat(0xffe2a8, 1.2);
+    for (const sx of [-1, 1]) { const pg = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.6), pageM); pg.position.x = sx * 0.22; pg.rotation.z = sx * 0.08; book.add(pg); }
+    root.add(book);
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.015, 8, 48), emissiveMat(0xffd36a, 2)); halo.rotation.x = Math.PI / 2; halo.position.y = 0.2; root.add(halo);
+    root.position.set(d.pos[0], d.pos[1] - 0.05, d.pos[2]);
+    return { root, update(L, ctx) { pageM.emissiveIntensity = L.st[0] ? 4 : 1 + 0.4 * Math.sin(ctx.time * 2); halo.rotation.z = ctx.time; halo.scale.setScalar(L.st[0] ? 1.4 + 0.1 * Math.sin(ctx.time * 4) : 1); halo.position.y = 0.2 + (L.st[0] ? 0.4 : 0); } };
+  },
   gate() { return null; },
+
 };
 
+let _haz = null;
+function hazardTexture() {
+  if (_haz) return _haz.clone();
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#140806'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#ff7a2a';
+  for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(i * 24, 64); g.lineTo(i * 24 + 16, 64); g.lineTo(i * 24 + 48, 0); g.lineTo(i * 24 + 32, 0); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; _haz = t; return t.clone();
+}
 let _stripe = null;
 function stripeTexture() {
   if (_stripe) return _stripe.clone();

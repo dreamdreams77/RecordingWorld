@@ -17,6 +17,7 @@ E.push(wall('tunL', [-1.5, 0, -68], [-1.0, 1.8, -52]), wall('tunR', [1.0, 0, -68
 E.push(crate('crateB', [0, 0.4, -53.2]));
 E.push(plate('plateB', [0, 0, -69.6]));
 
+E.push({ id: 'op2', type: 'actor', pos: [3.6, 0, -50], startOn: 'section:b', hideAt: 760, path: [[0, 3.6, -50], [640, 3.6, -67]], tones: [[100,160,3],[190,250,5],[280,340,3],[370,430,6],[460,520,1]] });
 // ---- C: overspeed. The governor opens only when histories SUM past 1.5.
 E.push(...room('c', { zS: -80, zN: -110, doorId: 'doorC', doorIn: ['gov'] }));
 swapWall('c_wallE', [wall('c_wallE1', [9, 0, -110], [10, 9, -96]), wall('c_wallE2', [9, 0, -90], [10, 9, -80]), wall('c_wallE3', [9, 4, -96], [10, 9, -90])]);
@@ -64,6 +65,7 @@ export default {
       objective: 'Cross the field.',
       hint: 'The laser sleeps while the button is down — for 1.5 s. A recording of the button held (frame the button, not the field) keeps it down. The crate on the plate would do the same. Sweepers are low: jump them.' },
   ],
+  events: [{ on: 'section:b', actors: ['op2'] }],
   exit: { box: [-9, 0, -160, 9, 6, -152] },
   discoveries: [
     { id: 'ch2-d1', pos: [8, 1, 6], title: 'Log 0011 — The Engine', text: 'The Engine was not built to compute. It was built to remember being on.' },

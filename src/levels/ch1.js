@@ -28,7 +28,9 @@ E.push(...room('c', { zS: -49, zN: -88, floorTo: false, endWall: false }));
 E.push(floor('c_near', [-10, -3, -57], [10, 0, -49]), floor('c_far', [-10, -3, -88], [10, 0, -66]));
 E.push(bridge('bridgeC', [-2, -3.6, -66], [2, -3, -57], [0, 3, 0], { in: ['btnC'], speed: 0.6, skin: 'bridge' }));
 E.push(button('btnC', [-3.5, 0, -53.5], 150));
-E.push(wall('c_rail', [-10, 0, -88], [10, 9, -87]));
+E.push(door('obsShutter', [-10, 0, -88], [10, 9.2, -87], [0, 9.4, 0], { skin: 'door', speed: 0.25 })); // the observation window: closed until you cross
+E.push({ id: 'op1', type: 'actor', pos: [6, 0, -84], startOn: 'section:c', yaw: 0, hideAt: 620,
+  path: [[0, 6, -84], [300, 6, -84], [520, -7, -85]], tones: [[40,100,3],[110,170,5],[180,240,3],[250,310,6],[320,380,1]] });
 
 export default {
   id: 'ch1', index: 1, title: 'The Observation Chamber', subtitle: 'Calibration Run 0', theme: 'chamber',
@@ -52,6 +54,7 @@ export default {
       objective: 'Cross the chasm.',
       hint: 'Press the button, wait for the bridge to rise fully, stop recording, then play with HOLD (L cycles modes).' },
   ],
+  events: [{ on: 'section:c', set: { obsShutter: { tgt: 1 } }, actors: ['op1'] }],
   exit: { box: [-10, 0, -88, 10, 6, -82] },
   discoveries: [
     { id: 'ch1-d1', pos: [-8, 1, 6], title: 'Log 0001 — The First Boot', text: 'Nothing was ever rewound. We only learned to listen to what the world still remembers.' },

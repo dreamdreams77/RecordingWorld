@@ -180,6 +180,12 @@ export class AudioEngine {
       } else if (t === 'player' && L2.st[8] > 0.5 && (L2.echo || false)) {
         const v = this.voice(`${lk}|voice`, () => this.toneVoice(true, true));
         if (v) { const f = noteHz(L2.st[8] | 0) * 0.5; v.f.frequency.setTargetAtTime(f, now, 0.02); v.f2.frequency.setTargetAtTime(f * 2, now, 0.02); v.f3.frequency.setTargetAtTime(f * 3, now, 0.02); place(v, L2.st[0], L2.st[1] + 0.5, L2.st[2]); set(v.gain.gain, 0.2); }
+      } else if (t === 'carillon' && L2.st[1] > 0.5) {
+        const v = this.voice(`${lk}|car`, () => this.toneVoice(hist, false));
+        if (v) { const f = noteHz(L2.st[1] | 0) * 2; v.f.frequency.setTargetAtTime(f, now, 0.01); v.f2.frequency.setTargetAtTime(f * 2.7, now, 0.01); v.f3.frequency.setTargetAtTime(f * 4.1, now, 0.01); place(v, ...def.pos); set(v.gain.gain, 0.2); }
+      } else if (t === 'actor' && L2.st[7] > 0.5 && L2.st[4] > 0.5) {
+        const v = this.voice(`${lk}|hum`, () => this.toneVoice(true, true));
+        if (v) { const f = noteHz(L2.st[4] | 0) * 0.5; v.f.frequency.setTargetAtTime(f, now, 0.04); v.f2.frequency.setTargetAtTime(f * 2, now, 0.04); v.f3.frequency.setTargetAtTime(f * 3, now, 0.04); place(v, L2.st[0], L2.st[1] + 0.4, L2.st[2]); set(v.gain.gain, 0.14); }
       } else if (t === 'flywheel' && L2.st[0] > 0.03) {
         const v = this.voice(`${lk}|fw`, () => this.machineVoice(hist));
         if (v) { const om = L2.st[0]; v.o.frequency.value = 38 + om * 90; v.o2.frequency.value = 19 + om * 45; v.lp.frequency.value = 160 + om * 600; place(v, ...def.pos); set(v.gain.gain, 0.05 + om * 0.22); }
@@ -263,6 +269,8 @@ export class AudioEngine {
       case 'tape': this.noiseTick(1800, 0.25, 0.25); this.blip(330, 0.4, 0.15, 'sawtooth', 'sfx', 165); break;
       case 'shock': this.noiseTick(150, 0.5, 0.8, 0.5); this.blip(60, 0.6, 0.4, 'sawtooth', 'sfx', 30); break;
       case 'collapse': this.noiseTick(500, 0.9, 0.7, 0.4); this.blip(300, 0.9, 0.3, 'sawtooth', 'sfx', 40); break;
+      case 'canon': [196, 293.66, 392, 587.33].forEach((f, i) => setTimeout(() => this.blip(f, 2.4, 0.12, 'sine', 'music'), i * 160)); this.noiseTick(300, 0.8, 0.4, 0.5); break;
+      case 'rewind': this.blip(880, 0.6, 0.14, 'sawtooth', 'sfx', 110); this.noiseTick(2000, 0.5, 0.2); break;
       case 'end': this.blip(440, 0.4, 0.12, 'triangle'); break;
       case 'complete': [261.63, 329.63, 392, 523.25, 659.25].forEach((f, i) => setTimeout(() => this.blip(f, 2.2, 0.1, 'sine', 'music'), i * 220)); break;
       default:

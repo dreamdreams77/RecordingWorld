@@ -37,6 +37,7 @@ E.push(...room('d1', { zS: -112, zN: -130, doorId: 'doorD1', doorIn: ['lock1'] }
 E.push({ id: 'car1', type: 'carillon', pos: [-6, 1.4, -118], melody: [[1, 60], [3, 60], [5, 60], [6, 60], [4, 60]], once: true, in: ['go1'], range: 24 });
 E.push(button('go1', [-3.5, 0, -116], 400), wall('car1_base', [-6.5, 0, -118.5], [-5.5, 0.7, -117.5]));
 E.push(resonator('lock1', [6, 1.4, -124], { seq: [4, 6, 5, 3, 1], tempo: [20, 36], window: 80, hold: 900, charge: 20 }), wall('lock1_base', [5.5, 0, -124.5], [6.5, 0.7, -123.5]));
+E.push({ id: 'op4', type: 'actor', pos: [-8.2, 0, -114], startOn: 'section:d1', loop: true, yaw: Math.PI, path: [[0, -8.2, -114], [400, -8.2, -114]], tones: [[60, 74, 4], [88, 102, 6], [116, 130, 5], [144, 158, 3], [172, 186, 1]] });
 E.push(...room('d2', { zS: -130, zN: -148, doorId: 'doorD2', doorIn: ['lock2'] }));
 E.push({ id: 'car2', type: 'carillon', pos: [-6, 1.4, -136], melody: [[2, 12], [5, 12], [3, 12], [1, 12], [6, 12]], once: true, in: ['go2'], range: 24 });
 E.push(button('go2', [-3.5, 0, -134], 80), wall('car2_base', [-6.5, 0, -136.5], [-5.5, 0.7, -135.5]));
@@ -74,6 +75,7 @@ export default {
       objective: 'Make the resonator hear this melody at a dignified pace.',
       hint: 'Record the carillon and play it at ×0.25 ( [ ). Time is a dial.' },
   ],
+  events: [{ on: 'section:d1', actors: ['op4'] }],
   exit: { box: [-9, 0, -162, 9, 6, -154] },
   discoveries: [
     { id: 'ch4-d1', pos: [-8, 1, 6], title: 'Log 0031 — Listening', text: 'The first thing the Recollector ever recorded was a room full of people not speaking.' },

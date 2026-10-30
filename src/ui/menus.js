@@ -16,7 +16,7 @@ const CONTROLS = [
   ['T', 'Play / pause the selected slot'], ['Y', 'Stop (dismiss the echo)'], ['U', 'Play every slot on the same tick'], ['L', 'Cycle playback mode: once · loop · ping-pong · hold'],
   ['G', 'Reverse direction'], [', .', 'Scrub back / forward  (Shift: faster)'], ['[ ]', 'Playback rate'], ['Backspace', 'Erase the selected slot'],
   ['Z X C V B N M', 'Hold to sing notes C D E F G A B'], ['Tab', 'Expand the state comparison'], ['H', 'Show / hide the hint'],
-  ['K', 'Return to checkpoint and recall crates'], ['F5', 'Save a snapshot'], ['F3 · F4', 'Developer overlay · trajectories and volumes'], ['Esc', 'Pause'],
+  ['K', 'Return to checkpoint and recall crates'], ['Shift+K', 'Reset the section (keeps your recordings)'], ['F6', 'Rewind: step back through automatic captures'], ['Shift+Backspace', 'Roll the selected slot back to its previous take'], ['F5', 'Save a snapshot'], ['F3 · F4', 'Developer overlay · trajectories and volumes'], ['Esc', 'Pause'],
   ['Sandbox: B · Enter · Del · F', 'Cycle item · place · remove · link source → sink  (Shift+F: link inverted)'],
 ];
 

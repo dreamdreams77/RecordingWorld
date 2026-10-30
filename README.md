@@ -27,7 +27,7 @@ rejects a preset the game steps down automatically.
 `WASD` move · mouse look · `Space` jump · `E` use / load tape · `Q` frame a volume (click pins, wheel resizes, right
 click clears) · `R` record/stop · `1–6` slot · `T` play/pause · `Y` stop · `U` play all on the same tick · `L` mode
 (once / loop / ping-pong / hold) · `G` reverse · `, .` scrub · `[ ]` rate · `Backspace` erase · `Z X C V B N M` sing notes ·
-`Tab` state comparison · `K` return to checkpoint · `F5` save · `F3` developer overlay · `Esc` pause. Sandbox: `B` item, `Enter` place,
+`Tab` state comparison · `K` return to checkpoint · `Shift+K` reset section · `F6` rewind · `Shift+Backspace` roll a slot back · `F5` save · `F3` developer overlay · `Esc` pause. Sandbox: `B` item, `Enter` place,
 `Delete` remove, `F` link (`Shift+F` inverted), `J` note.
 
 ## The campaign
@@ -35,13 +35,13 @@ click clears) · `R` record/stop · `1–6` slot · `T` play/pause · `Y` stop �
 | | Chapter | New application of the mechanic |
 |---|---|---|
 | I | The Observation Chamber | recording, echoes that press plates, `hold` |
-| II | The Machine That Remembers | machinery with memory; histories that **add** (flywheel superposition) |
-| III | The Architecture of Absence | archive tapes: simulated alternate histories, ghost operators, conflicting overlapping spans |
-| IV | The Acoustic World | recorded voice, range and occlusion, chords across time |
-| V | The Infinite Observatory | light and mirrors; time-shifted recordings made on a beat; three systems latched by three recordings |
-| VI | The World Is a Recording | a reprise, then the Master Record and two endings (Release / Hold); unlocks the Sandbox |
+| II | The Machine That Remembers | machinery with memory; histories that **add** (flywheel superposition); *The Dead Field*: moving hazards, and a remembered switch that **subtracts** danger through a negated wire |
+| III | The Architecture of Absence | archive tapes: simulated alternate histories, ghost operators, conflicting overlapping spans; *The Fork*: two incompatible histories and a **ledger** that makes one of them true (enforced by sealing; persists into later chapters) |
+| IV | The Acoustic World | recorded voice, range and occlusion, chords across time; *The Carillon*: a melody mechanism whose locks demand the **reverse** order, or a **different tempo** |
+| V | The Infinite Observatory | light and mirrors; time-shifted recordings made on a beat; *The Prism Hall*: dispersion into red/green/blue, timed shutters, colour-keyed sensors, two histories half a cycle apart |
+| VI | The World Is a Recording | a reprise; *The Well*: a one-way descent, a floor that wears out (history does not), a crusher and a delayed lift; then the Master Record and two endings (Release / Hold); unlocks the Sandbox |
 
-Each chapter has an optional experiment, hidden logs, and an economy rating (par = recordings used by the scripted
+Most new sections have two or more verified solutions (`npm test` runs each variant). Each chapter has an optional experiment, hidden logs, and an economy rating (par = recordings used by the scripted
 solution). Hints are on by default (`H`).
 
 ## How it works
