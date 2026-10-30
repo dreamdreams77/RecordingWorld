@@ -168,3 +168,76 @@ test('directors apply physical story events (actors appear, architecture moves) 
   assert.ok(w.byId.get('d').st[0] > 0.9, 'the door slid open by event');
   assert.ok(w.byId.get('wit').st[0] > 1.9, 'the witness walked on cue');
 });
+
+test('brittle pane: sustained sound at its pitch shatters it for good; other pitches do not; history does not break', () => {
+  const lv = arena([{ id: 'gl', type: 'pane', pos: [0, 1.5, -6], size: [4, 3, 0.2], note: 6, hold: 60 }]);
+  const b = new Bot(lv);
+  b.walkTo(0, -2);
+  b.sing(3, 3); assert.equal(b.st('gl', 'integ'), 1, 'the wrong note does nothing');
+  b.sing(6, 0.5); assert.ok(b.st('gl', 'integ') === 1, 'a brief note is not enough');
+  b.w.drainEvents(); b.sing(6, 2);
+  assert.equal(b.st('gl', 'integ'), 0, 'sustained resonance shatters it');
+  assert.ok(b.w.drainEvents().some((e) => e.type === 'shatter'));
+  b.step(300); assert.equal(b.st('gl', 'integ'), 0, 'and it stays shattered');
+  // history does not break: an echo of the intact pane keeps standing
+  const c = new Bot(lv); c.walkTo(0, -2);
+  c.w.startRecording(0, c.vol(0, 1.5, -6, 3, 3, 1)); c.step(20); c.w.stopRecording(); c.w.play(0, { mode: 'hold' });
+  c.sing(6, 3);
+  assert.equal(c.st('gl', 'integ'), 0);
+  assert.ok(c.w.aliveList.some((L) => L.echo && L.id === 'gl' && L.st[0] === 1), 'the recorded pane is still whole');
+  c.faceXZ(0, -20); c.step(120, { mz: 1 });
+  assert.ok(c.p[2] > -5.9, 'and still blocks the way');
+});
+
+test('count gate: opens on exactly n rising edges, jams permanently on n+1, resettable', () => {
+  const lv = arena([lever('l', [3, 0, 0]), gate('cnt', 'count', ['l'], { n: 3, reset: 'rs' }), lever('rs', [3, 0, -1])]);
+  const b = new Bot(lv);
+  const flip = () => { const L = b.w.byId.get('l'); L.st[0] = L.st[0] ? 0 : 1; b.step(3); };
+  flip(); flip(); flip(); flip(); flip();  // on off on off on  → 3 rising edges
+  assert.equal(b.signal('cnt'), 1, 'exactly three presses opens it');
+  flip(); flip();                          // a fourth rising edge
+  assert.equal(b.signal('cnt'), 0, 'one press too many jams it');
+  flip(); flip(); assert.equal(b.signal('cnt'), 0, 'and it stays jammed');
+  b.w.byId.get('rs').st[0] = 1; b.step(3); b.w.byId.get('rs').st[0] = 0; b.step(3);
+  assert.equal(b.w.byId.get('cnt').st[3], 0, 'the reset input clears the jam');
+});
+
+test('echoes are immune to hazards: history can stand where the living cannot, and press plates there', () => {
+  const lv = arena([{ id: 'laz', type: 'slider', mode: 'matter', hazard: true, pos: [0, -1.6, -8], to: [0, 0.2, -8], size: [8, 0.4, 8], s0: 1, in: ['!safe'], speed: 5 }, lever('safe', [6, 0, -3], { hold: 240 }), plate('pp', [0, 0, -8])]);
+  const b = new Bot(lv);
+  b.walkTo(5, -3.2); b.w.startRecording(0, b.vol(0, 1, -6, 7, 3, 5));
+  b.press('safe'); b.walkTo(0, -8, { tol: 0.3 }); b.step(40); b.w.stopRecording();
+  b.walkTo(5, -2); b.step(200);
+  assert.equal(b.st('laz', 's'), 1, 'the laser is armed again');
+  b.w.drainEvents(); b.w.play(0, { mode: 'hold' }); b.step(140);
+  assert.ok(!b.w.drainEvents().some((e) => e.type === 'zapped'), 'the player was not harmed by the echo walking through the laser');
+  assert.equal(b.signal('pp'), 1, 'the echo presses a plate in the middle of the lethal floor');
+});
+
+test('causality: explain() names which history is deciding a door, and reconcile events fire when history flips a signal', () => {
+  const lv = arena([plate('p', [0, 0, -3]), door('d', [-2, 0, -8], [2, 3, -7.6], [0, 3, 0], { in: ['p'] })]);
+  const b = new Bot(lv);
+  b.walkTo(0, -3); b.w.startRecording(0, b.vol(0, 1, -3, 3, 3, 3)); b.step(60); b.w.stopRecording();
+  b.walkTo(0, -6); b.w.drainEvents(); b.w.play(0, { mode: 'loop' }); b.step(20);
+  const ex = b.w.explain('d');
+  assert.equal(ex.inputs[0].id, 'p'); assert.ok(ex.inputs[0].pass);
+  assert.ok(ex.inputs[0].layers.some((l) => l.layer === 1 && l.value > 0.5), 'the recorded plate is pressed');
+  assert.deepEqual(ex.inputs[0].layers.find((l) => l.layer === 0).heldBy, [1], 'the present plate is held down only by the echo');
+  assert.ok(b.w.explain('p').echoDriven, 'the plate is held by history, not the present');
+  b.step(10);
+  assert.ok(b.w.drainEvents().some((e) => e.type === 'reconcile' && e.id === 'p'), 'a reconcile event was raised for the feedback layer');
+});
+
+test('barks fire once near their trigger and honour flags; discoveries can be gated by flags', async () => {
+  const { Director } = await import('../src/sim/director.js');
+  const lv = arena([], { sections: [{ id: 's', trigger: [-9, -1, -9, 9, 5, 8], checkpoint: { pos: [0, 0, 0] } }],
+    barks: [{ id: 'b1', at: [0, 1, -3], r: 2, text: 'hello' }, { id: 'b2', at: [0, 1, -3], r: 2, text: 'gated', ifFlag: 'op2' }],
+    discoveries: [{ id: 'd1', pos: [0, 1, -3], title: 'x', text: 'y' }, { id: 'd2', pos: [0, 1, -3], title: 'z', text: 'w', ifFlag: 'ending' }], experiments: [] });
+  const w = new World(lv), dir = new Director(w, lv, null, { ending: true }, {});
+  const bot = new Bot(lv, { world: w }); const st = w.step.bind(w); w.step = (i) => { st(i); dir.update(); };
+  bot.walkTo(0, -3);
+  const msgs = dir.drain();
+  assert.equal(msgs.filter((m) => m.kind === 'bark').length, 1, 'only the ungated bark fired');
+  assert.equal(msgs.filter((m) => m.kind === 'discovery').length, 2, 'the post-ending log appears when the flag is set');
+  bot.step(60); assert.equal(dir.drain().filter((m) => m.kind === 'bark').length, 0, 'barks do not repeat');
+});

@@ -1,3 +1,4 @@
+import { AFTERWORDS } from './story.js';
 import { wall, floor, door, bridge, button, plate, gate, flywheel, resonator, beam, mirror, sensor, lamp, emitter, room } from './builder.js';
 
 // V. THE INFINITE OBSERVATORY — every system at once, and recordings used as instruments of timing.
@@ -78,14 +79,17 @@ export default {
       objective: 'Light red, green and blue together.',
       hint: 'Record one full ten-second cycle of the sensors (stay clear of the beams), then play it OFFSET from the present by half a cycle — scrub to the middle (, .) before pressing T, or wait 5 s and press T. Two histories, half a cycle apart, can agree where one cannot.' },
   ],
-  events: [{ on: 'section:d', actors: ['op5'] }],
+  events: [{ on: 'section:d', actors: ['op5'] }, { on: 'section:d', ifFlag: 'canon:ch3:observatory', pin: { shG: 1 }, say: 'The green shutter has been propped open from the inside. Someone with a telescope has been here.', who: 'THE ARCHIVIST' }],
+  barks: [{ id: 'ch5-b1', at: [7, 19, -111], r: 4, who: 'THE OPERATOR', text: 'The stars do not blink because nothing is looking at them.', truth: 'stars', trust: { operator: 1 } }],
   exit: { box: [-10, 17, -160, 10, 26, -148] },
   discoveries: [
+    { id: 'ch5-r1', pos: [8, 1, 3], title: 'Afterword', text: AFTERWORDS.ch5, ifFlag: 'ending' },
     { id: 'ch5-d1', pos: [-8, 1, 6], title: 'Log 0041 — Starlight', text: 'I measured the sky for four thousand hours. It never moved. I decided the instrument was broken.' },
     { id: 'ch5-d2', pos: [8, 1, -69], title: 'Log 0042 — The Beat', text: 'The metronome is not for you. It is for whoever is playing you back, so they stay in time.' },
     { id: 'ch5-d3', pos: [-21, 1, -23], title: 'Log 0043 — The Vault of Light', text: 'Three beams, three sensors, one hand. The trick was always to let someone else hold the other two.' },
   ],
   experiments: [{ id: 'ch5-x1', title: 'Triple Light', desc: 'Light all three sensors at once.', signal: 'exp5' }],
-  tapes: [], archives: [],
+  tapes: [{ id: 'tCycle', name: 'The Operator’s Cycle', archive: 'cycle', pos: [-6, 18, -108], ifFlag: 'canon:ch3:archive' }],
+  archives: [{ id: 'cycle', name: 'The Operator’s Cycle', keep: [], volume: { x0: -1.5, x1: 9.5, y0: 16, y1: 22, z0: -134.5, z1: -115.5 }, ticks: 600 }],
   narrative: { outro: 'At the top of the shaft the sky is a photograph. Each star is a pixel that has not changed in all the hours you have been here.' },
 };

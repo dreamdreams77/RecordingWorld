@@ -16,8 +16,8 @@ for (const [id, level] of Object.entries(LEVELS)) {
   for (const variant of variantsOf[id]) {
     for (const experiments of [false, true]) {
       test(`${id} "${level.title}" [${variant.name}${experiments ? ' + optional experiments' : ''}] is solvable through the real controls`, () => {
-        const world = new World(level);
-        const dir = new Director(world, level);
+        const world = new World(level, { canon: variant.canon, flags: variant.flags });
+        const dir = new Director(world, level, null, variant.flags ?? {});
         const bot = new Bot(level, { world });
         const step = world.step.bind(world);
         world.step = (inp) => { step(inp); dir.update(); };
@@ -49,7 +49,7 @@ test('par values are honest: the best scripted variant never exceeds the stated 
     const solve = solutions[id]; if (!solve || !level.par) continue;
     let best = Infinity;
     for (const variant of variantsOf[id]) {
-      const world = new World(level), dir = new Director(world, level), bot = new Bot(level, { world });
+      const world = new World(level, { canon: variant.canon, flags: variant.flags }), dir = new Director(world, level, null, variant.flags ?? {}), bot = new Bot(level, { world });
       const step = world.step.bind(world); world.step = (i) => { step(i); dir.update(); };
       solve(bot, dir, { experiments: false, variant });
       best = Math.min(best, dir.stats.recordings);

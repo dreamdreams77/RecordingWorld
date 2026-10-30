@@ -52,7 +52,7 @@ export class World {
     this.checkpoint = null;
     this.player = null;
     this.stats = { solids: 0, conflicts: 0, stepMs: 0, recordingsMade: 0 };
-    this.nextDyn = 1;
+    this.nextDyn = 1; this.echoDriven = new Set();
     this.pins = {}; this.sealed = new Set(); // canonised state: id → pinned slider position; ids that ignore all echoes
     this.undo = [];
 
@@ -60,6 +60,8 @@ export class World {
       if (def.era && def.era !== this.era) continue;
       if (def.era === 'past' && opts.keep && !opts.keep.includes(def.id)) continue;
       if (def.ifCanon && opts.canon?.[def.ifCanon.key] !== def.ifCanon.is) continue; // consequences of earlier choices
+      if (def.ifFlag && !opts.flags?.[def.ifFlag]) continue;
+      if (def.ifNotFlag && opts.flags?.[def.ifNotFlag]) continue;
       this.addEntity(this.era === 'past' && def.past ? { ...def, ...def.past } : def);
     }
     if (!opts.noPlayer && level.spawn) {
@@ -416,6 +418,16 @@ export class World {
       else R.set(L.id, Math.max(R.get(L.id) ?? 0, v));
     }
     this.R = R;
+    // which signals are true ONLY because a history says so (the heart of reconciliation, surfaced for feedback)
+    const driven = new Set();
+    for (const [id, v] of R) {
+      if (v <= 0.5) continue;
+      const P = this.byId.get(id);
+      const presentTrue = P?.heldBy ? P.heldBy.has(0) : (P?.type.out?.(P.def, P.st) ?? 0) > 0.5;
+      if (!presentTrue) driven.add(id);
+    }
+    if (this.tick > 0) for (const id of driven) if (!this.echoDriven.has(id)) { const L = this.aliveList.find((x) => x.id === id); this.emit('reconcile', { id, pos: L ? L.type.anchor(L.def, L.st) : null }); }
+    this.echoDriven = driven;
   }
 
   analyze() {
@@ -620,6 +632,25 @@ export class World {
     });
     this.refreshDerived();
     this.emit('rewound', { tick: c.tick });
+  }
+
+  // ------------------------------------------------------------------ causality
+  /** Why is this entity doing what it is doing? Per-history contributions and the inputs feeding it. */
+  explain(id) {
+    const items = this.aliveList.filter((L) => L.id === id);
+    if (!items.length) return null;
+    const t = items[0].type, P = this.byId.get(id);
+    const layersOf = (iid) => this.aliveList.filter((L) => L.id === iid && L.type.out).map((L) => ({ layer: L.layer, slot: L.layer - 1, value: L.type.out(L.def, L.st) ?? 0, heldBy: L.heldBy ? [...L.heldBy] : undefined }));
+    const inputs = (P?.def.in ?? []).map((raw) => {
+      const neg = raw[0] === '!', iid = neg ? raw.slice(1) : raw, v = this.R.get(iid) ?? 0;
+      return { id: iid, negated: neg, value: v, pass: neg ? !(v > 0.5) : v > 0.5, layers: layersOf(iid) };
+    });
+    return {
+      id, type: t.name, logic: P?.def.logic ?? 'and', reconciled: this.R.get(id) ?? null,
+      contributions: t.out ? layersOf(id) : [], inputs,
+      overruled: this.overruled.has(id), sealed: this.sealed.has(id), pinned: this.pins[id] ?? null,
+      echoDriven: this.echoDriven.has(id),
+    };
   }
 
   // ------------------------------------------------------------------ inspection (feeds the HUD and dev tools)

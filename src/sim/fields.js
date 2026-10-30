@@ -100,6 +100,19 @@ export function occlusion(w, a, b, skip) {
   return k;
 }
 
+/** Strongest audible amplitude of `note` at a point (range and occlusion included), or 0 below `sens`. */
+export function heardAmp(w, pos, note, sens = 0.2) {
+  let best = 0;
+  for (const s of w.sources) {
+    if (s.note !== note) continue;
+    const d = Math.hypot(pos[0] - s.pos[0], pos[1] - s.pos[1], pos[2] - s.pos[2]);
+    if (d >= s.range) continue;
+    const amp = (1 - d / s.range) * occlusion(w, s.pos, pos);
+    if (amp >= sens && amp > best) best = amp;
+  }
+  return best;
+}
+
 export function collectSoundSources(w) {
   const out = [];
   for (const L of w.allAlive()) {

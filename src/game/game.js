@@ -97,8 +97,9 @@ export class Game {
     this.state = 'loading'; this.cine = null; this.renderer.cinematic = null; this.renderer.setEmulsion(0, 0); this.coach = { step: 0, t: 0 }; this.sb.link = null;
     this.level = level;
     this.progress.canon ??= {};
-    this.world = new World(level, { caps: { modes: level.caps.modes }, canon: this.progress.canon });
-    this.director = new Director(this.world, level, this.progress.levels[id]);
+    const flags = this.storyFlags();
+    this.world = new World(level, { caps: { modes: level.caps.modes }, canon: this.progress.canon, flags });
+    this.director = new Director(this.world, level, this.progress.levels[id], flags, this.progress.seen ?? {});
     this.rewinds = []; this.sectionCaps = {}; this.lastCap = 0;
     this.applyPerks();
     if (snapshot) {
@@ -172,11 +173,29 @@ export class Game {
     this.hud.toast('Returned to checkpoint; crates recalled.', 'warn');
   }
 
+  /** Flags derived from the whole save: the ending seen, the Operator's trust, and the choices that were canonised. */
+  storyFlags() {
+    const f = {}, rel = this.progress.relations ?? {};
+    if (this.progress.ending) f.ending = true;
+    for (const [who, n] of Object.entries(rel)) for (let i = 1; i <= n; i++) f[`${who === 'operator' ? 'op' : who}${i}`] = true;
+    for (const [ch, v] of Object.entries(this.progress.canon ?? {})) f[`canon:${ch}:${v}`] = true;
+    return f;
+  }
+
   // ------------------------------------------------------------------ director messages
   processDirector() {
     for (const m of this.director.drain()) {
       switch (m.kind) {
         case 'event': this.hud.say(m.text, m.who ?? 'THE ARCHIVIST'); break;
+        case 'bark': {
+          const b = m.bark, pr = this.progress;
+          this.hud.say(b.text, b.who ?? 'THE OPERATOR', 7000);
+          (pr.seen ??= {})['bark:' + b.id] = true;
+          if (b.truth) { pr.truths ??= []; if (!pr.truths.includes(b.truth)) { pr.truths.push(b.truth); this.hud.toast('A truth is recorded in the Archive.', 'disc', 'UNDERSTANDING'); } }
+          for (const [who, n] of Object.entries(b.trust ?? {})) { pr.relations ??= {}; pr.relations[who] = (pr.relations[who] ?? 0) + n; }
+          saveProgress(pr);
+          break;
+        }
         case 'section': {
           this.sectionCaps[m.index] = this.world.capture();
           this.hud.setFolio(this.level, m.section); this.hud.showHint(this.settings.hints && false);

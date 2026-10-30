@@ -1,3 +1,4 @@
+import { AFTERWORDS } from './story.js';
 import { wall, floor, door, bridge, plate, button, gate, flywheel, resonator, lamp, emitter, room } from './builder.js';
 
 // VI. THE WORLD IS A RECORDING — a reprise of every system, then the Master Record.
@@ -40,6 +41,7 @@ E.push(gate('metro6', 'osc', [], { period: 200, duty: 0.1, phase: 0 }));
 E.push(lamp('metroLamp6', [-7, 3.2, -95 + D], ['metro6'], { power: 8, range: 12 }), emitter('metroSnd6', [7, 3.2, -95 + D], 7, { in: ['metro6'], range: 14 }));
 E.push(plate('cradle', [0, 0, -128 + D], [3.4, 0.12, 3.4], { need: 2 }));
 E.push({ id: 'archivist', type: 'actor', pos: [3.4, 0, -165], startOn: 'section:d', yaw: 0, path: [[0, 3.4, -165], [99999, 3.4, -165]], tones: [] });
+E.push({ id: 'op6', type: 'actor', ifFlag: 'op3', pos: [-3.4, 0, -165], startOn: 'section:d', yaw: 0, path: [[0, -3.4, -165], [99999, -3.4, -165]], tones: [] });
 E.push({ id: 'archivist2', type: 'actor', pos: [3.4, 0, -165], startOn: 'finale', hideAt: 330, path: [[0, 3.4, -165], [240, 0.9, -163.5], [330, 0.9, -163.5]], tones: [[100, 200, 3]] });
 E.push(wall('d_cap', [-13, 0, -143 + D], [13, 14, -142 + D]));
 
@@ -70,13 +72,22 @@ export default {
       objective: 'Cross the void, then stand where you stood — both of you.',
       hint: 'Record the spans on three beats (800 ticks apart), play all with U, cross. On the cradle: record yourself, step off, play it, step back on. The cradle wants two bodies.' },
   ],
-  events: [{ on: 'section:d', actors: ['archivist'] }, { on: 'finale', actors: ['archivist2'] }],
+  events: [{ on: 'section:d', actors: ['archivist', 'op6'] }, { on: 'finale', actors: ['archivist2'] },
+    { on: 'section:w', ifFlag: 'canon:ch3:observatory', pin: { crush: 0 }, say: 'Someone has already lifted the crusher. The mounting is still warm.', who: 'THE ARCHIVIST' }],
+  barks: [
+    { id: 'ch6-b1', at: [3.4, 1, -163], r: 5, who: 'THE ARCHIVIST', text: 'I recorded the last day. I recorded it so well I forgot I was inside it.', truth: 'archivist' },
+    { id: 'ch6-b2', at: [6.5, 1, -2], r: 3, who: 'THE SURVEYOR', text: 'You let my charter be true. Thank you. It was lonely being the one that almost was.', ifFlag: 'canon:ch3:archive' },
+    { id: 'ch6-b3', at: [6.5, 1, -2], r: 3, who: 'THE ASTRONOMER', text: 'You chose the sky. I kept the shutters for you.', ifFlag: 'canon:ch3:observatory' },
+  ],
   finale: { signal: 'cradle' },
   discoveries: [
+    { id: 'ch6-r1', pos: [8, 1, 3], title: 'Afterword', text: AFTERWORDS.ch6, ifFlag: 'ending' },
     { id: 'ch6-d1', pos: [-8, 1, 6], title: 'Log 0051 — Recording Zero', text: 'The first recording was not of a room. It was of the last day, all of it, for everyone, in one take.' },
     { id: 'ch6-d2', pos: [8, 1, -125], title: 'Log 0052 — Playback', text: 'A recording that is never played is a stone. A recording that is played is a world. We needed someone to be the playhead.' },
     { id: 'ch6-d3', pos: [12, 1, -177], title: 'Log 0053 — The Cradle', text: 'The Recollector was never an instrument. It was a bookmark. Place it where you stopped, and the world resumes from there.' },
   ],
-  experiments: [], tapes: [], archives: [],
+  experiments: [],
+  tapes: [{ id: 'tWear', name: 'The Wear Table', archive: 'wear', pos: [6, 0, -93], ifFlag: 'canon:ch3:archive' }],
+  archives: [{ id: 'wear', name: 'The Wear Table', keep: [], volume: { x0: -3, x1: 3, y0: -14, y1: -9, z0: -107.1, z1: -104.5 }, ticks: 30 }],
   narrative: { intro: 'You have been here before. You have always been here before.' },
 };

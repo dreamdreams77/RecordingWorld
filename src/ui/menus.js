@@ -2,6 +2,7 @@
 // the ending's choice and credits. Plain DOM, keyboard- and mouse-operable, honouring UI scale and
 // reduced-motion settings.
 
+import { TRUTHS } from '../levels/story.js';
 import { LEVELS, CAMPAIGN } from '../levels/index.js';
 import { QUALITY, DEFAULT_SETTINGS, saveSettings } from '../game/settings.js';
 import { loadProgress, saveProgress, resetAll, hasSnapshot, loadSnapshot } from '../game/progress.js';
@@ -120,7 +121,9 @@ export class Menus {
           m.appendChild(el('h2', '', `${ROMAN[L.index]} · ${L.title}`));
           for (const d of L.discoveries) { tot++; const have = r?.discoveries.includes(d.id); if (have) n++; m.appendChild(el('p', '', have ? `<b style="color:var(--gold)">${d.title}</b><br>${d.text}` : `<span style="color:var(--dim)">— unrecovered —</span>`)); }
         }
-        m.insertAdjacentHTML('afterbegin', '');
+        const got = P.truths ?? [];
+        m.appendChild(el('h2', '', `What you understand · ${got.length} of ${TRUTHS.length}`));
+        for (const t of TRUTHS) { const h = got.includes(t.id); m.appendChild(el('p', '', h ? `<b style="color:var(--gold)">${t.title}</b><br>${t.text}` : `<span style="color:var(--dim)">— not yet understood —</span>`)); }
         m.appendChild(el('div', 'tiny', `${n} of ${tot} logs recovered`));
         m.appendChild(this.btn('Back', () => this.back()));
         s.style.overflowY = 'auto'; s.style.alignItems = 'flex-start'; m.style.padding = '40px 0';

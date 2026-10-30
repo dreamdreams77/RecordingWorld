@@ -1,3 +1,4 @@
+import { AFTERWORDS } from './story.js';
 import { wall, floor, door, bridge, crate, plate, lever, button, gate, room } from './builder.js';
 
 // I. THE OBSERVATION CHAMBER — record, replay, hold. The Recollector wakes in a calibration hall.
@@ -57,9 +58,14 @@ export default {
   events: [{ on: 'section:c', set: { obsShutter: { tgt: 1 } }, actors: ['op1'] }],
   exit: { box: [-10, 0, -88, 10, 6, -82] },
   discoveries: [
+    { id: 'ch1-r1', pos: [8, 1, 6], title: 'Afterword', text: AFTERWORDS.ch1, ifFlag: 'ending' },
     { id: 'ch1-d1', pos: [-8, 1, 6], title: 'Log 0001 — The First Boot', text: 'Nothing was ever rewound. We only learned to listen to what the world still remembers.' },
     { id: 'ch1-d2', pos: [8, 1, -86], title: 'Log 0002 — Observation Window', text: 'The window looks out at stars. Stars do not blink. I checked for 4,000 hours.' },
     { id: 'ch1-d3', pos: [25, 1, -39], title: 'Log 0003 — Three Witnesses', text: 'A place can be occupied by the past, by the present, and by what someone wants it to have been.' },
+  ],
+  barks: [
+    { id: 'ch1-b1', at: [0, 1, -72], r: 6, who: 'THE OPERATOR', text: 'You came through the window. Everyone does, the first time.', truth: 'first-time', trust: { operator: 1 } },
+    { id: 'ch1-b2', at: [-5, 1, -84], r: 4, who: 'THE OPERATOR', text: 'Count the ticks. Not the seconds. Ticks.', truth: 'ticks' },
   ],
   experiments: [{ id: 'ch1-x1', title: 'Three Witnesses', desc: 'Hold all three Annex plates at once.', signal: 'exp1' }],
   tapes: [], archives: [],

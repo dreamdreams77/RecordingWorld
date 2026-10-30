@@ -1,3 +1,4 @@
+import { AFTERWORDS } from './story.js';
 import { wall, floor, door, plate, lever, room } from './builder.js';
 
 // III. THE ARCHITECTURE OF ABSENCE — archive tapes: histories that have no present counterpart.
@@ -73,6 +74,10 @@ export default {
       objective: 'Cross, and decide which history becomes real.',
       hint: 'Load a charter, play it (HOLD), cross, then stand at the ledger with that charter selected and press E. The other bridge will be gone for good — unless you rewind (F6).' },
   ],
+  barks: [
+    { id: 'ch3-b1', at: [0, 1, -103], r: 3.5, who: 'A SURVEYOR', text: 'Two charters, and a ledger for each. Whichever you let be true, I will have been right.', truth: 'fork' },
+    { id: 'ch3-b2', at: [0, 5.4, -21.5], r: 3, who: 'THE OPERATOR', text: 'I walked that stair every day, before it was a stair you needed a tape for.', trust: { operator: 1 } },
+  ],
   exits: [{ id: 'archive', box: [0.5, 0, -164, 9.5, 6, -156] }, { id: 'observatory', box: [-9.5, 0, -164, -0.5, 6, -156] }],
   canon: { ledE: { key: 'ch3', value: 'archive' }, ledW: { key: 'ch3', value: 'observatory' } },
   tapes: [
@@ -92,6 +97,7 @@ export default {
     { id: 'spanY', name: 'Survey West Span', keep: ['deckY'], volume: { x0: -4, x1: 4, y0: -3, y1: 9, z0: -92, z1: -78 }, ticks: 300, script: [{ t: 10, id: 'deckY', set: { tgt: 1 } }] },
   ],
   discoveries: [
+    { id: 'ch3-r1', pos: [8, 1, 3], title: 'Afterword', text: AFTERWORDS.ch3, ifFlag: 'ending' },
     { id: 'ch3-d1', pos: [-8, 1, 6], title: 'Log 0021 — Demolition', text: 'They did not tear the Quarter down. They recorded it, and then forgot which one was the building.' },
     { id: 'ch3-d2', pos: [0, 5.6, -24], title: 'Log 0022 — The Doorway', text: 'A door that opens onto nothing is still a door. The tape says someone used it daily.' },
     { id: 'ch3-d3', pos: [-6, 5.6, -31], title: 'Log 0023 — The Operator', text: 'I was the last Recollector operator. I stood on the plate for eleven days so that you would not have to.' },

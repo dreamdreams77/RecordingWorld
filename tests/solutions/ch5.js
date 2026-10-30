@@ -1,4 +1,6 @@
-export const variants = [{ name: 'scrub-half-cycle', prism: 'scrub' }, { name: 'wait-half-cycle', prism: 'wait' }];
+export const variants = [{ name: 'scrub-half-cycle', prism: 'scrub' }, { name: 'wait-half-cycle', prism: 'wait' },
+  { name: 'observatory-canon (green shutter propped open)', prism: 'natural', canon: { ch3: 'observatory' }, flags: { 'canon:ch3:observatory': true } },
+  { name: 'archive-canon (the Operator’s tape)', prism: 'tape', canon: { ch3: 'archive' }, flags: { 'canon:ch3:archive': true } }];
 export default function solve(bot, dir, opts = {}) {
   const w = bot.w;
   const press = (id) => bot.press(id);
@@ -58,15 +60,25 @@ export default function solve(bot, dir, opts = {}) {
   bot.walkTo(1.8, -106);
   w.stop(0); w.stop(1); w.stop(2);
   // --- D: prism hall — one recording, offset by half a cycle
-  bot.walkTo(-4, -120);
-  while (w.tick % 600 !== 0) bot.step(1);
-  const t0 = w.tick;
-  w.startRecording(0, bot.vol(4, Y + 1, -125, 5.5, 3, 9.5), 'cycle');
-  bot.step(600);
-  if (w.recorder) w.stopRecording();
-  if (opts.variant?.prism === 'wait') { while (w.tick !== t0 + 900) bot.step(1); w.play(0, { mode: 'loop' }); }
-  else { w.setHead(0, 300); w.play(0, { mode: 'loop' }); }
-  for (let i = 0; i < 1500 && bot.signal('allHold') < 0.5; i++) bot.step(1);
+  const pm = opts.variant?.prism ?? 'scrub';
+  if (pm === 'natural') {
+    bot.walkTo(-4, -120);
+  } else if (pm === 'tape') {
+    bot.walkTo(-5, -108.5);
+    dir.loadTape(dir.nearbyTape(), 0);
+    bot.walkTo(-4, -120);
+    w.setHead(0, (w.tick + 297) % 600); w.play(0, { mode: 'loop' });
+  } else {
+    bot.walkTo(-4, -120);
+    while (w.tick % 600 !== 0) bot.step(1);
+    const t0 = w.tick;
+    w.startRecording(0, bot.vol(4, Y + 1, -125, 5.5, 3, 9.5), 'cycle');
+    bot.step(600);
+    if (w.recorder) w.stopRecording();
+    if (pm === 'wait') { while (w.tick !== t0 + 900) bot.step(1); w.play(0, { mode: 'loop' }); }
+    else { w.setHead(0, 300); w.play(0, { mode: 'loop' }); }
+  }
+  for (let i = 0; i < 3000 && bot.signal('allHold') < 0.5; i++) bot.step(1);
   if (bot.signal('allHold') < 0.5) throw new Error('the three colours never coincided');
   bot.walkTo(0, -138);
   bot.walkTo(0, -141);

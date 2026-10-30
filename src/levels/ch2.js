@@ -1,3 +1,4 @@
+import { AFTERWORDS } from './story.js';
 import { wall, floor, door, crate, plate, lever, button, gate, flywheel, conveyor, room } from './builder.js';
 
 // II. THE MACHINE THAT REMEMBERS — machinery keeps its state; history can power the present.
@@ -36,6 +37,15 @@ E.push({ id: 'laser', type: 'slider', mode: 'matter', hazard: true, pos: [0, -1.
   E.push(gate(`rpo${i + 1}`, 'osc', [], { period: 480, duty: 0.5, phase: ph }));
   E.push({ id: `rp${i + 1}`, type: 'slider', mode: 'matter', hazard: true, pos: [-6, 0.35, z], to: [6, 0.35, z], size: [6, 0.7, 0.6], in: [`rpo${i + 1}`], speed: 0.25 });
 });
+// the Counting House: an annex off the field. Its floor is lethal unless a button is held; the plate in the middle must be
+// pressed EXACTLY three times (a fourth jams the counter for good). Every press counts — yours and every replay's.
+swapWall('d_wallE', [wall('d_wallE1', [9, 0, -146], [10, 9, -115]), wall('d_wallE2', [9, 0, -111.2], [10, 9, -110]), wall('d_wallE3', [9, 3.4, -115], [10, 9, -111.2])]);
+E.push(floor('ax_floor', [10, -3, -117], [23, 0, -110]), wall('ax_N', [10, 0, -111.2], [30, 9, -110]), wall('ax_S', [10, 0, -118], [30, 9, -117]));
+E.push(floor('vault_floor2', [23, -3, -117], [30, 0, -110]), wall('ax_E', [29, 0, -117], [30, 9, -110]));
+E.push(wall('ax_div1', [22, 0, -117], [23, 9, -114.5]), wall('ax_div2', [22, 0, -112.5], [23, 9, -111.2]), wall('ax_lint', [22, 3.2, -114.5], [23, 9, -112.5]));
+E.push(door('vaultD', [22.2, 0, -114.5], [22.8, 3.2, -112.5], [0, 3.3, 0], { in: ['cnt'], skin: 'door' }));
+E.push(button('safe2b', [24.5, 0, -115.4], 210), button('safe2', [11, 0, -112], 210), plate('cp', [19, 0, -113.5]), gate('cnt', 'count', ['cp'], { n: 3 }));
+E.push({ id: 'laser2', type: 'slider', mode: 'matter', hazard: true, pos: [17, -1.6, -113.5], to: [17, 0.2, -113.5], size: [8, 0.4, 4], s0: 1, in: ['!safe2', '!safe2b'], speed: 5 });
 // exit hall beyond the field
 E.push(...room('x', { zS: -146, zN: -160, endWall: true }));
 E.push(wall('x_cap', [-9, 0, -161], [9, 9, -160]));
@@ -66,13 +76,20 @@ export default {
       hint: 'The laser sleeps while the button is down — for 1.5 s. A recording of the button held (frame the button, not the field) keeps it down. The crate on the plate would do the same. Sweepers are low: jump them.' },
   ],
   events: [{ on: 'section:b', actors: ['op2'] }],
+  barks: [
+    { id: 'ch2-b1', at: [3.6, 1, -57], r: 5, who: 'THE OPERATOR', text: 'The belt was my idea. Slow clocks hold their shape longest.', truth: 'belt', trust: { operator: 1 } },
+    { id: 'ch2-b2', at: [0, 1, -113.5], r: 3.5, who: 'THE OPERATOR', text: 'The field was never meant to kill. It was meant to be forgotten safely.', truth: 'field' },
+  ],
   exit: { box: [-9, 0, -160, 9, 6, -152] },
   discoveries: [
+    { id: 'ch2-r1', pos: [8, 1, 3], title: 'Afterword', text: AFTERWORDS.ch2, ifFlag: 'ending' },
     { id: 'ch2-d1', pos: [8, 1, 6], title: 'Log 0011 — The Engine', text: 'The Engine was not built to compute. It was built to remember being on.' },
     { id: 'ch2-d2', pos: [7.5, 1, -78], title: 'Log 0012 — The Belt', text: 'A crate on a belt is a very slow clock. Every clock in the Registry was one of these.' },
+    { id: 'ch2-d4', pos: [26, 1, -113.5], title: 'Log 0014 — The Counting House', text: 'Three footsteps, no more. The Registry counted visitors by the weight they left behind; a fourth was always treated as a fault.' },
     { id: 'ch2-d3', pos: [20, 1, -93], title: 'Log 0013 — Superposition', text: 'Two memories of the same motion are not a repetition. They are twice as much motion.' },
   ],
-  experiments: [{ id: 'ch2-x1', title: 'Triple Superposition', desc: 'Drive the governor past 2.5 with two echoes and yourself.', signal: 'gov2' }],
+  experiments: [{ id: 'ch2-x1', title: 'Triple Superposition', desc: 'Drive the governor past 2.5 with two echoes and yourself.', signal: 'gov2' },
+    { id: 'ch2-x2', title: 'The Counting House', desc: 'Open the counter with exactly three presses — made by history.', signal: 'cnt' }],
   tapes: [], archives: [],
   narrative: { outro: 'Beyond the governor, the Engine opens its gallery. Every dial reads the same number: the tick.' },
 };

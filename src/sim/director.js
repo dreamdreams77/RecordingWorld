@@ -8,17 +8,19 @@ import { containsPoint } from './math.js';
 const bx = (a) => ({ x0: a[0], y0: a[1], z0: a[2], x1: a[3], y1: a[4], z1: a[5] });
 
 export class Director {
-  constructor(world, level, progress = null) {
-    this.w = world; this.level = level;
+  constructor(world, level, progress = null, flags = {}, seen = {}) {
+    this.w = world; this.level = level; this.flags = flags;
+    this.barks = (level.barks ?? []).filter((b) => (!b.ifFlag || flags[b.ifFlag]) && (!b.ifNotFlag || !flags[b.ifNotFlag]));
+    this.barked = new Set(Object.keys(seen).filter((k) => k.startsWith('bark:')).map((k) => k.slice(5)));
     this.sectionIndex = -1;
     this.found = new Set(progress?.discoveries ?? []);
     this.done = new Set(progress?.experiments ?? []);
     this.completed = false;
     this.messages = [];
     this.sections = (level.sections ?? []).map((s) => ({ ...s, box: bx(s.trigger) }));
-    this.discoveries = (level.discoveries ?? []).map((d) => ({ ...d }));
+    this.discoveries = (level.discoveries ?? []).filter((d) => !d.ifFlag || flags[d.ifFlag]).map((d) => ({ ...d }));
     this.experiments = level.experiments ?? [];
-    this.tapes = level.tapes ?? [];
+    this.tapes = (level.tapes ?? []).filter((t) => !t.ifFlag || flags[t.ifFlag]);
     this.exitBoxes = level.exit ? [bx(level.exit.box)] : (level.exits ?? []).map((e) => bx(e.box));
     this.exitBox = this.exitBoxes[0] ?? null;
     this.stats = { recordings: 0, ticks: 0 };
@@ -40,6 +42,10 @@ export class Director {
     for (const d of this.discoveries) {
       if (this.found.has(d.id)) continue;
       if (Math.hypot(p[0] - d.pos[0], p[1] - d.pos[1], p[2] - d.pos[2]) < (d.radius ?? 1.4)) { this.found.add(d.id); this.say('discovery', { discovery: d }); }
+    }
+    for (const b of this.barks) {
+      if (this.barked.has(b.id)) continue;
+      if (Math.hypot(p[0] - b.at[0], p[1] - b.at[1], p[2] - b.at[2]) < (b.r ?? 4)) { this.barked.add(b.id); this.say('bark', { bark: b }); }
     }
     for (const x of this.experiments) {
       if (!this.done.has(x.id) && (w.R.get(x.signal) ?? 0) > 0.5) { this.done.add(x.id); this.say('experiment', { experiment: x }); }
@@ -67,7 +73,8 @@ export class Director {
    */
   applyEvents(trigger) {
     for (const ev of this.level.events ?? []) {
-      if (ev.on !== trigger) continue;
+      if (ev.on !== trigger || (ev.ifFlag && !this.flags[ev.ifFlag]) || (ev.ifNotFlag && this.flags[ev.ifNotFlag])) continue;
+      for (const [id, v] of Object.entries(ev.pin ?? {})) this.w.pins[id] = v; // the world quietly stays as an earlier choice left it
       for (const [id, chans] of Object.entries(ev.set ?? {})) {
         const L = this.w.byId.get(id); if (!L) continue;
         for (const [ch, v] of Object.entries(chans)) { const i = L.type.I[ch]; if (i !== undefined) L.st[i] = v; }

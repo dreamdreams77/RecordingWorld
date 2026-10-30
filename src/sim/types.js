@@ -5,6 +5,7 @@
 // writes them back verbatim. Anything not in a state vector is derived from it.
 
 import { boxC, lerp, clamp } from './math.js';
+import { heardAmp } from './fields.js';
 
 const idx = (names) => Object.fromEntries(names.map((n, i) => [n, i]));
 const v3 = (a, d = [0, 0, 0]) => (a ? a : d);
@@ -94,11 +95,12 @@ reg('plate', {
     const s = v3(L.def.size, [2, 0.12, 2]), p = L.def.pos;
     const top = p[1] + s[1] / 2;
     const region = { x0: p[0] - s[0] / 2, x1: p[0] + s[0] / 2, z0: p[2] - s[2] / 2, z1: p[2] + s[2] / 2, y0: top - 0.05, y1: top + 0.3 };
-    let n = 0;
+    let n = 0; const by = new Set();
     for (const b of w.bodyBoxes) {
-      if (b.b.x0 < region.x1 && b.b.x1 > region.x0 && b.b.z0 < region.z1 && b.b.z1 > region.z0 && b.b.y0 < region.y1 && b.b.y0 > region.y0 - 0.05) n++;
+      if (b.b.x0 < region.x1 && b.b.x1 > region.x0 && b.b.z0 < region.z1 && b.b.z1 > region.z0 && b.b.y0 < region.y1 && b.b.y0 > region.y0 - 0.05) { n++; by.add(b.layer); }
     }
     L.st[0] = n >= (L.def.need ?? 1) ? 1 : 0;
+    L.heldBy = by; // which histories' bodies are pressing it (runtime attribution for explain() and feedback)
   },
 });
 
@@ -147,7 +149,7 @@ reg('sensor', { // photocell
 
 // ---------------------------------------------------------------- logic
 reg('gate', {
-  ch: ['out', 'c', 'prev'], keyCh: 0, size: () => [0.4, 0.4, 0.4], colliders() {},
+  ch: ['out', 'c', 'prev', 'jam'], keyCh: 0, size: () => [0.4, 0.4, 0.4], colliders() {},
   out: (d, st) => st[0],
   step(L, w) {
     const d = L.def, st = L.st, op = d.op ?? 'logic', inp = w.inputOf(d);
@@ -157,6 +159,11 @@ reg('gate', {
       case 'delay': st[1] = hi ? st[1] + 1 : 0; st[0] = st[1] >= (d.ticks ?? 60) ? 1 : 0; break;
       case 'hold': if (hi) st[1] = d.ticks ?? 120; else st[1] = Math.max(0, st[1] - 1); st[0] = st[1] > 0 ? 1 : 0; break;
       case 'pulse': if (hi && !st[2]) st[1] = d.ticks ?? 60; else st[1] = Math.max(0, st[1] - 1); st[0] = st[1] > 0 ? 1 : 0; break;
+      case 'count': { // opens on exactly n rising edges; one more and it jams for good (unless a reset input fires)
+        if (d.reset && w.sig(d.reset) > 0.5) { st[1] = 0; st[3] = 0; }
+        if (hi && !st[2]) { st[1] += 1; if (st[1] > (d.n ?? 3)) st[3] = 1; }
+        st[0] = !st[3] && st[1] === (d.n ?? 3) ? 1 : 0; break;
+      }
       case 'toggle': if (hi && !st[2]) st[0] = st[0] ? 0 : 1; break;
       case 'latch': { // in[0] sets, in[1] resets
         const set = w.sig(d.in[0]) > 0.5, rst = d.in[1] ? w.sig(d.in[1]) > 0.5 : false;
@@ -312,6 +319,26 @@ reg('carillon', { // a mechanism that plays a melody while powered
     if (st[3] >= dur) { st[3] = 0; st[2] += 1; if (st[2] >= mel.length) { if (d.once) { st[2] = mel.length - 1; st[3] = dur; st[1] = 0; } else st[2] = 0; } }
   },
   out: (d, st) => st[0],
+});
+
+// ---------------------------------------------------------------- sound → matter
+reg('pane', { // brittle glass tuned to one note: sustained sound at its pitch shatters it, permanently. History does not break.
+  ch: ['integ', 'charge'], capture: 'overlap', keyCh: 0,
+  init: () => [1, 0],
+  size: (d) => v3(d.size, [0.2, 3, 3]),
+  colliders(d, st, push) {
+    if (st[0] <= 0.02) return;
+    const s = v3(d.size, [0.2, 3, 3]);
+    push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], s[0], s[1], s[2]), kind: 'wall', snd: SND.glass, beam: false });
+  },
+  out: (d, st) => (st[0] <= 0.02 ? 1 : 0), // 1 once shattered
+  step(L, w) {
+    const d = L.def, st = L.st;
+    if (st[0] <= 0.02) return;
+    if (heardAmp(w, d.pos, d.note ?? 6, d.sens ?? 0.22) > 0) st[1] = Math.min(1, st[1] + 1 / (d.hold ?? 120));
+    else st[1] = Math.max(0, st[1] - 1 / 90);
+    if (st[1] >= 1) { st[0] = 0; w.emit('shatter', { id: L.id, pos: d.pos }); }
+  },
 });
 
 // ---------------------------------------------------------------- optics

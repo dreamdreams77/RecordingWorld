@@ -1,3 +1,4 @@
+import { AFTERWORDS } from './story.js';
 import { wall, floor, door, resonator, emitter, room, gate, button } from './builder.js';
 
 // IV. THE ACOUSTIC WORLD — recorded sound has range, occlusion and meaning to the machinery that hears it.
@@ -9,6 +10,10 @@ E.push(...room('a', { zS: 8, zN: -36, doorId: 'doorA', doorIn: ['resA'] }));
 E.push(resonator('resA', [-8.6, 1.4, -10], { want: [3], charge: 30, hold: 90, decay: 60 }));
 E.push(wall('glassA', [-7.7, 0, -12.5], [-7.5, 3, -7.5], { glass: true }));
 
+// secret: a vault behind brittle glass tuned to A. Sound becomes structure.
+swapWall('a_wallW', [wall('a_wallW1', [-10, 0, -36], [-9, 9, -24]), wall('a_wallW2', [-10, 0, -18], [-9, 9, 8]), wall('a_wallW3', [-10, 3.4, -24], [-9, 9, -18])]);
+E.push({ id: 'brittleA', type: 'pane', pos: [-9.5, 1.7, -21], size: [0.4, 3.4, 6], note: 6, hold: 120 });
+E.push(floor('gv_floor', [-18, -3, -25], [-10, 0, -17]), wall('gv_N', [-18, 0, -25], [-10, 9, -24]), wall('gv_S', [-18, 0, -18], [-10, 9, -17]), wall('gv_W', [-18, 0, -25], [-17, 9, -17]));
 // ---- B: a chord. Two notes at once; you only have one voice.
 E.push(...room('b', { zS: -36, zN: -72, doorId: 'doorB', doorIn: ['resB'] }));
 E.push(resonator('resB', [0, 1.4, -54], { want: [2, 5], charge: 30, hold: 400, decay: 60 }));
@@ -38,6 +43,13 @@ E.push({ id: 'car1', type: 'carillon', pos: [-6, 1.4, -118], melody: [[1, 60], [
 E.push(button('go1', [-3.5, 0, -116], 400), wall('car1_base', [-6.5, 0, -118.5], [-5.5, 0.7, -117.5]));
 E.push(resonator('lock1', [6, 1.4, -124], { seq: [4, 6, 5, 3, 1], tempo: [20, 36], window: 80, hold: 900, charge: 20 }), wall('lock1_base', [5.5, 0, -124.5], [6.5, 0.7, -123.5]));
 E.push({ id: 'op4', type: 'actor', pos: [-8.2, 0, -114], startOn: 'section:d1', loop: true, yaw: Math.PI, path: [[0, -8.2, -114], [400, -8.2, -114]], tones: [[60, 74, 4], [88, 102, 6], [116, 130, 5], [144, 158, 3], [172, 186, 1]] });
+// secret: the Mirror Lock. Notes up and back down, almost too fast to play — a recording can be played to-and-fro, quickly.
+swapWall('d1_wallE', [wall('d1_wallE1', [9, 0, -130], [10, 9, -129]), wall('d1_wallE2', [9, 0, -125], [10, 9, -112]), wall('d1_wallE3', [9, 3.4, -129], [10, 9, -125])]);
+E.push(floor('mv_floor', [10, -3, -131], [20, 0, -123]), wall('mv_N', [10, 0, -131], [21, 9, -130]), wall('mv_S', [10, 0, -124], [21, 9, -123]), wall('mv_E', [20, 0, -131], [21, 9, -123]));
+E.push(door('mirrorDoor', [9.2, 0, -129], [9.8, 3.4, -125], [0, 3.5, 0], { in: ['lock3'], skin: 'door' }));
+E.push({ id: 'car3', type: 'carillon', pos: [-7, 1.4, -127], melody: [[1, 60], [3, 60], [5, 60]], once: true, in: ['go3'], range: 24 }, button('go3', [-4.5, 0, -127.5], 300), wall('car3_base', [-7.5, 0, -127.5], [-6.5, 0.7, -126.5]));
+E.push(resonator('lock3', [7, 1.4, -120.5], { seq: [1, 3, 5, 3, 1], tempo: [10, 22], window: 40, hold: 900, charge: 20 }), wall('lock3_base', [6.5, 0, -121], [7.5, 0.7, -120]));
+E.push({ id: 'op4b', type: 'actor', ifFlag: 'op2', pos: [3.5, 0, -124], startOn: 'section:d1', loop: true, yaw: -Math.PI / 2, path: [[0, 3.5, -124], [400, 3.5, -124]], tones: [[60, 74, 4], [88, 102, 6], [116, 130, 5], [144, 158, 3], [172, 186, 1]] });
 E.push(...room('d2', { zS: -130, zN: -148, doorId: 'doorD2', doorIn: ['lock2'] }));
 E.push({ id: 'car2', type: 'carillon', pos: [-6, 1.4, -136], melody: [[2, 12], [5, 12], [3, 12], [1, 12], [6, 12]], once: true, in: ['go2'], range: 24 });
 E.push(button('go2', [-3.5, 0, -134], 80), wall('car2_base', [-6.5, 0, -136.5], [-5.5, 0.7, -135.5]));
@@ -75,14 +87,23 @@ export default {
       objective: 'Make the resonator hear this melody at a dignified pace.',
       hint: 'Record the carillon and play it at ×0.25 ( [ ). Time is a dial.' },
   ],
-  events: [{ on: 'section:d1', actors: ['op4'] }],
+  events: [{ on: 'section:d1', actors: ['op4', 'op4b'] }],
+  barks: [
+    { id: 'ch4-b1', at: [-6, 1, -114.5], r: 4, who: 'THE OPERATOR', text: 'Listen to the order. Then listen to the order again.', truth: 'hum', trust: { operator: 1 } },
+    { id: 'ch4-b2', at: [3, 1, -122], r: 3.5, who: 'THE OPERATOR', text: 'You earned that. I will say it for you.', ifFlag: 'op2' },
+  ],
   exit: { box: [-9, 0, -162, 9, 6, -154] },
   discoveries: [
+    { id: 'ch4-r1', pos: [8, 1, 3], title: 'Afterword', text: AFTERWORDS.ch4, ifFlag: 'ending' },
     { id: 'ch4-d1', pos: [-8, 1, 6], title: 'Log 0031 — Listening', text: 'The first thing the Recollector ever recorded was a room full of people not speaking.' },
     { id: 'ch4-d2', pos: [-14.5, 1, -90], title: 'Log 0032 — The Alcoves', text: 'The cathedral has no choir. The choir is whoever last sang here, and for how long.' },
+    { id: 'ch4-d4', pos: [-14, 1, -21], title: 'Log 0034 — Resonant Glass', text: 'The Registry glazed its secrets in a single pitch. Anyone who sings it for long enough is, by definition, someone it meant to let in.' },
+    { id: 'ch4-d5', pos: [15, 1, -127], title: 'Log 0035 — The Mirror Lock', text: 'A melody that is the same forwards and backwards. The Operator called it the only honest tune.' },
     { id: 'ch4-d3', pos: [20, 1, -47], title: 'Log 0033 — Melody', text: 'Five notes, in order, with room to breathe. It is the only lock in the Registry that anyone ever enjoyed opening.' },
   ],
-  experiments: [{ id: 'ch4-x1', title: 'The Registry Melody', desc: 'Play the five-note melody (E G E B C) to the vault resonator.', signal: 'melody' }],
+  experiments: [{ id: 'ch4-x1', title: 'The Registry Melody', desc: 'Play the five-note melody (E G E B C) to the vault resonator.', signal: 'melody' },
+    { id: 'ch4-x2', title: 'Resonant Glass', desc: 'Shatter the brittle pane by singing its note.', signal: 'brittleA' },
+    { id: 'ch4-x3', title: 'The Mirror Lock', desc: 'Make the lock hear a melody up and back, in a hurry.', signal: 'lock3' }],
   tapes: [], archives: [],
   narrative: { outro: 'The cathedral falls silent. One tone remains in the exit hall. It is the same tone it was an hour ago.' },
 };

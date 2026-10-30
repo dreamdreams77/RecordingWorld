@@ -1,4 +1,6 @@
-export default function solve(bot, dir) {
+export const variants = [{ name: 'default' }, { name: 'archive-canon (wear-table tape)', well: 'tape', canon: { ch3: 'archive' }, flags: { 'canon:ch3:archive': true } },
+  { name: 'observatory-canon (crusher already raised)', canon: { ch3: 'observatory' }, flags: { 'canon:ch3:observatory': true } }];
+export default function solve(bot, dir, opts = {}) {
   const w = bot.w;
   const vol = (x, y, z, hx = 4.5, hy = 3, hz = 4.5) => bot.vol(x, y, z, hx, hy, hz);
   // 1: plate echo
@@ -32,13 +34,13 @@ export default function solve(bot, dir) {
   bot.walkTo(0, -92);
   w.stop(0);
   // the Well
+  if (opts.variant?.well === 'tape') { bot.walkTo(6, -92.6); dir.loadTape(dir.nearbyTape(), 0); }
   bot.walkTo(0, -95);
   bot.walkTo(0, -101);
   for (let i = 0; i < 1200 && bot.st('P', 's') < 0.99; i++) bot.step(1);
   bot.step(30);
   if (bot.p[1] > -10) throw new Error(`the platform did not carry us down (y=${bot.p[1]})`);
-  w.startRecording(0, vol(0, -11.5, -105.8, 3, 2.5, 1.3), 'tile, intact');
-  bot.step(30); w.stopRecording();
+  if (opts.variant?.well !== 'tape') { w.startRecording(0, vol(0, -11.5, -105.8, 3, 2.5, 1.3), 'tile, intact'); bot.step(30); w.stopRecording(); }
   w.play(0, { mode: 'hold' });
   bot.walkTo(0, -104.6);
   bot.step(10);

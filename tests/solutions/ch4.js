@@ -1,6 +1,7 @@
-export const variants = [{ name: 'time-dials', carillon: 'time' }, { name: 'sing-it-yourself', carillon: 'manual' }];
+export const variants = [{ name: 'time-dials', carillon: 'time' }, { name: 'sing-it-yourself', carillon: 'manual' }, { name: 'trusted-operator', carillon: 'trust', flags: { op2: true } }];
 export default function solve(bot, dir, opts = {}) {
   const variant = opts.variant?.carillon ?? 'time';
+  const d2 = variant === 'trust' ? 'time' : variant;
   const w = bot.w;
   const vol = (x, y, z, hx = 4.5, hy = 3, hz = 4.5) => bot.vol(x, y, z, hx, hy, hz);
   // --- A: record singing next to the glass, then loop it
@@ -8,6 +9,13 @@ export default function solve(bot, dir, opts = {}) {
   w.startRecording(0, vol(-4, 1.5, -10), 'voice');
   bot.sing(3, 2.0);
   w.stopRecording();
+  if (opts.experiments) { // the brittle glass: sustained A
+    bot.walkTo(-6, -21);
+    bot.sing(6, 2.6);
+    if (!(bot.signal('brittleA') > 0.5)) throw new Error('the pane did not shatter');
+    bot.walkTo(-14, -21);
+    bot.walkTo(-1, -14);
+  }
   bot.walkTo(-1, -14);
   w.play(0, { mode: 'loop' });
   bot.walkTo(0, -20);
@@ -60,8 +68,22 @@ export default function solve(bot, dir, opts = {}) {
   bot.walkTo(0, -110.5);
   bot.walkTo(0, -114);
   bot.walkTo(0, -116);
+  if (opts.experiments) { // the Mirror Lock: up and back, four times as fast
+    bot.walkTo(-4.5, -125.5);
+    w.startRecording(1, vol(-7.2, 1.5, -127, 1.6, 3, 2.5), 'scale');
+    bot.press('go3'); bot.step(145); w.stopRecording();
+    bot.walkTo(0, -121);
+    w.play(1, { mode: 'pingpong', rate: 4 });
+    for (let i = 0; i < 600 && !(bot.signal('lock3') > 0.5); i++) bot.step(1);
+    if (!(bot.signal('lock3') > 0.5)) throw new Error('the mirror lock did not open');
+    w.stop(1);
+    bot.walkTo(8, -127); bot.walkTo(15, -127); bot.walkTo(8, -127); bot.walkTo(0, -118);
+  }
   // --- D1: retrograde at speed
-  if (variant === 'time') {
+  if (variant === 'trust') {
+    bot.walkTo(-1, -120);               // the Operator, who trusts you, hums the lock's answer himself
+    for (let i = 0; i < 2500 && bot.signal('lock1') < 0.5; i++) bot.step(1);
+  } else if (variant === 'time') {
     bot.walkTo(-3.5, -114.5);
     w.startRecording(0, vol(-6.3, 1.5, -118, 1.7, 3, 3), 'carillon');
     bot.press('go1'); bot.step(340); w.stopRecording();
@@ -80,7 +102,7 @@ export default function solve(bot, dir, opts = {}) {
   bot.step(80);
   bot.walkTo(0, -131);
   // --- D2: slow it down
-  if (variant === 'time') {
+  if (d2 === 'time') {
     bot.walkTo(-3.5, -132.5);
     w.startRecording(0, vol(-6.3, 1.5, -136, 1.7, 3, 3), 'carillon 2');
     bot.press('go2'); bot.step(100); w.stopRecording();

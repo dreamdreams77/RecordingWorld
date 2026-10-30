@@ -65,6 +65,25 @@ export default function solve(bot, dir, opts = {}) {
   bot.walkTo(0, -113);
   // --- D: the dead field
   w.stop(0); w.stop(1);
+  if (opts.experiments) {
+    // --- the Counting House: one live press, then exactly two ONCE replays (loop would overrun and jam it)
+    bot.walkTo(0, -112.5); bot.walkTo(8, -112.5);
+    bot.walkTo(11.6, -112.4);
+    w.startRecording(2, bot.vol(16.1, 1.25, -113.55, 5.8, 2.25, 2.45), 'a press');
+    bot.press('safe2');
+    bot.walkTo(19, -113.5, { tol: 0.2 }); bot.step(210);           // the laser re-arms while we stand there: back to the checkpoint
+    bot.step(30); w.stopRecording();
+    if (bot.st('cnt', 'c') !== 1) throw new Error(`the live press should have counted once (c=${bot.st('cnt', 'c')})`);
+    bot.walkTo(0, -112.5); bot.walkTo(8, -112.5);
+    for (let k = 0; k < 2; k++) { w.play(2, { mode: 'once' }); for (let i = 0; i < 700 && w.playbacks[2].active; i++) bot.step(1); }
+    if (!(bot.signal('cnt') > 0.5)) throw new Error('the counter never opened');
+    bot.walkTo(11.6, -112.4); bot.press('safe2');
+    bot.walkTo(12.4, -115.2, { tol: 0.3 }); bot.walkTo(20.7, -115.2, { tol: 0.35, max: 400 }); bot.walkTo(21.5, -113.5, { tol: 0.3 }); bot.walkTo(26, -113.5);
+    bot.walkTo(23.6, -114.8, { tol: 0.4 }); bot.press('safe2b');
+    bot.walkTo(21.5, -113.5, { tol: 0.3 }); bot.walkTo(20.7, -115.2, { tol: 0.35 }); bot.walkTo(12.4, -115.2, { tol: 0.4, max: 600 });
+    bot.step(60);
+    bot.walkTo(8, -112.5); bot.walkTo(0, -112.5);
+  }
   if ((opts.variant?.field ?? 'record') === 'record') {
     bot.walkTo(-6, -110.2);
     w.startRecording(0, bot.vol(-5, 1.2, -110.9, 4, 2.2, 2.9), 'button held');
