@@ -169,3 +169,57 @@ test('gates: latch, delay, osc and the signal network', () => {
   let on = 0; for (let i = 0; i < 120; i++) { b.step(1); on += b.signal('O'); }
   assert.ok(on > 50 && on < 70, `osc duty ${on}/120`);
 });
+
+test('multi-input sinks are AND by default (regression: slider `mode` must not alter logic)', () => {
+  const lv = arena([plate('p1', [-4, 0, -3]), plate('p2', [4, 0, -3]),
+    door('d', [-2, 0, -8], [2, 3, -7.6], [0, 3, 0], { in: ['p1', 'p2'] }),
+    door('dOr', [-2, 0, -12], [2, 3, -11.6], [0, 3, 0], { in: ['p1', 'p2'], logic: 'or' })]);
+  const b = new Bot(lv);
+  b.walkTo(-4, -3); b.step(120);
+  assert.ok(b.st('d', 's') < 0.05, 'one plate must not open an AND door');
+  assert.ok(b.st('dOr', 's') > 0.9, 'logic:or opens with one plate');
+});
+
+test('beams: mirror reflection, sensors, and an echo mirror in another state does not trap the beam', async () => {
+  const { beam, mirror, sensor } = await import('./helpers.js');
+  const lv = arena([beam('B', [-6, 1.2, -10], 0), mirror('M', [0, 1.2, -10], 0), sensor('S1', [0, 1.2, -4], { facing: 0 }), sensor('S2', [0, 1.2, -16], { facing: 0 })]);
+  const b = new Bot(lv);
+  b.step(3);
+  assert.equal(b.signal('S1'), 1); assert.equal(b.signal('S2'), 0);
+  b.walkTo(2.5, -8);
+  b.w.startRecording(0, b.vol(-2, 1.5, -10, 8, 3, 8), 0.2 * 0 + undefined); b.step(30); b.w.stopRecording();
+  b.w.play(0, { mode: 'hold' }); b.step(3);
+  b.press('M'); b.step(5);
+  assert.equal(b.signal('S1'), 1, 'echo sensor stays lit');
+  assert.equal(b.signal('S2'), 1, 'present mirror now lights the other sensor');
+  for (const bm of b.w.beams) assert.ok(bm.pts.length <= 4, `beam polyline stays short (${bm.pts.length})`);
+});
+
+test('sound: resonators hear notes through range and occlusion; recorded voice is heard', async () => {
+  const { resonator, wall: w2 } = await import('./helpers.js');
+  const lv = arena([resonator('R', [0, 1.4, -8], { want: [3], charge: 20, hold: 0, decay: 30 }), w2('blocker', [-6, 0, -14], [6, 4, -13])]);
+  const b = new Bot(lv);
+  b.walkTo(3, -4);
+  b.sing(3, 1); assert.equal(b.signal('R'), 1, 'heard at 5 m');
+  b.step(60); assert.equal(b.signal('R'), 0);
+  b.walkTo(8, -12); b.walkTo(8, -20); b.walkTo(0, -20); b.sing(3, 1.5); assert.equal(b.signal('R'), 0, 'occluded by a wall');
+  b.walkTo(8, -20); b.walkTo(8, -8); b.walkTo(3, -4);
+  b.w.startRecording(0, b.vol(3, 1.5, -4, 3, 3, 3)); b.sing(3, 1); b.w.stopRecording();
+  b.walkTo(8, 4); b.step(10);
+  assert.equal(b.signal('R'), 0);
+  b.w.play(0, { mode: 'loop' }); b.step(50);
+  assert.equal(b.signal('R'), 1, 'the echo sings; the resonator hears history');
+});
+
+test('superposition: flywheel histories add (sum policy)', async () => {
+  const { flywheel, button } = await import('./helpers.js');
+  const lv = arena([flywheel('F', [-6, 0, -8], ['btn'], {}), button('btn', [-3, 0, -8], 120)]);
+  const b = new Bot(lv);
+  b.walkTo(-3, -6);
+  b.w.startRecording(0, b.vol(-5, 1.5, -8, 5, 3, 4)); b.press('btn'); b.seconds(2.6); b.w.stopRecording();
+  b.w.play(0, { mode: 'hold' }); b.step(900);
+  const echoOnly = b.w.R.get('F');
+  assert.ok(echoOnly > 0.9 && echoOnly < 1.1, `echo alone ≈ 1 (${echoOnly})`);
+  b.press('btn'); b.seconds(2.5);
+  assert.ok(b.w.R.get('F') > 1.7, `echo + live > 1.7 (${b.w.R.get('F')})`);
+});

@@ -94,7 +94,7 @@ export class World {
   inputOf(def) {
     const ins = def.in;
     if (!ins || !ins.length) return null;
-    const and = (def.mode ?? 'and') === 'and';
+    const and = (def.logic ?? 'and') === 'and';
     let acc = and;
     for (const id of ins) {
       const v = this.sig(id) > 0.5;

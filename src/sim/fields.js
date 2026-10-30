@@ -35,7 +35,7 @@ export function traceBeams(w) {
         if (t >= 0 && t < tb && t > 0.02) tb = t;
       }
       for (const m of mirrors) {
-        if (m === lastMirror || (lastMirror && m.id === lastMirror.id && m.layer === lastMirror.layer)) continue;
+        if (lastMirror && m.id === lastMirror.id) continue; // same physical mirror, any history
         const t = rayBox(ox, y, oz, dx, 0, dz, m.b, tb);
         if (t >= 0 && t < tm && t <= tb) { tm = t; hitM = m; }
       }
