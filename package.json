@@ -14,7 +14,14 @@
     "e2e": "node e2e/smoke.mjs",
     "bench": "node tests/bench.mjs"
   },
-  "engines": { "node": ">=20" },
-  "dependencies": { "three": "0.186.1" },
-  "devDependencies": { "vite": "8.3.5" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1",
+    "vite": "8.3.5"
+  }
 }

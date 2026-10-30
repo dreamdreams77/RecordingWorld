@@ -50,7 +50,7 @@ export class World {
     this.recorder = null;
     this.checkpoint = null;
     this.player = null;
-    this.stats = { solids: 0, conflicts: 0, stepMs: 0 };
+    this.stats = { solids: 0, conflicts: 0, stepMs: 0, recordingsMade: 0 };
     this.nextDyn = 1;
 
     for (const def of level.entities ?? []) {
@@ -441,6 +441,7 @@ export class World {
     if (r.tau < 2) { this.emit('record-abort', { slot: r.slot }); return null; }
     r.rec.finalize(r.tau);
     r.rec.uid = this.tick;
+    this.stats.recordingsMade++;
     this.recordings[r.slot] = r.rec;
     this.playbacks[r.slot] = new Playback(r.slot, r.rec);
     this.emit('record-stop', { slot: r.slot, reason, ticks: r.tau, keyframes: r.rec.keyframes });
@@ -498,6 +499,7 @@ export class World {
   pick(origin, dir, maxT = 40) {
     let best = null, bt = maxT;
     for (const L of this.aliveList) {
+      if (L === this.player) continue;
       const boxes = [];
       L.type.colliders?.(L.def, L.st, (s) => boxes.push(s.b));
       if (!boxes.length) { const a = L.type.anchor(L.def, L.st), s = L.type.size(L.def); boxes.push(boxC(a[0], a[1], a[2], Math.max(s[0], .6), Math.max(s[1], .6), Math.max(s[2], .6))); }

@@ -29,3 +29,22 @@ export const resonator = (id, at, x = {}) => ({ id, type: 'resonator', pos: at, 
 export const beam = (id, at, dir, x = {}) => ({ id, type: 'beam', pos: at, dir, ...x });
 export const mirror = (id, at, rot = 0, x = {}) => ({ id, type: 'mirror', pos: at, rot, ...x });
 export const sensor = (id, at, x = {}) => ({ id, type: 'sensor', pos: at, ...x });
+
+/**
+ * A rectangular hall: floor slab, side walls and (optionally) a north end wall with a doorway.
+ * The doorway is filled by an aperture slider `doorId` powered by `doorIn`.
+ */
+export function room(p, { zS, zN, x0 = -9, x1 = 9, h = 9, gap = [-2.2, 2.2], gh = 3.6, doorId = null, doorIn = null, endWall = true, floorTo = true, skin = null, doorX = {} }) {
+  const e = [];
+  const sk = skin ? { skin } : {};
+  if (floorTo) e.push(floor(`${p}_floor`, [x0 - 1, -3, zN], [x1 + 1, 0, zS], sk));
+  e.push(wall(`${p}_wallW`, [x0 - 1, 0, zN], [x0, h, zS], sk));
+  e.push(wall(`${p}_wallE`, [x1, 0, zN], [x1 + 1, h, zS], sk));
+  if (endWall) {
+    e.push(wall(`${p}_endL`, [x0, 0, zN], [gap[0], h, zN + 1], sk));
+    e.push(wall(`${p}_endR`, [gap[1], 0, zN], [x1, h, zN + 1], sk));
+    e.push(wall(`${p}_lintel`, [gap[0], gh, zN], [gap[1], h, zN + 1], sk));
+    if (doorId) e.push(door(doorId, [gap[0], 0, zN + 0.3], [gap[1], gh, zN + 0.7], [0, gh + 0.15, 0], { in: doorIn ?? [], skin: 'door', ...doorX }));
+  }
+  return e;
+}

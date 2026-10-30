@@ -106,8 +106,10 @@ export class Recorder {
     this.rec = new Recording(name, volume);
     this.maxTicks = maxTicks;
     this.tau = 0;
+    this.energy = [];
   }
   capture(world) {
+    let changed = 0;
     const v = this.rec.volume;
     for (const L of world.items) {
       const t = L.type;
@@ -116,8 +118,9 @@ export class Recorder {
       const inside = world.insideVolume(L, v);
       let tr = this.rec.tracks.get(L.id);
       if (!tr) { if (!inside) continue; tr = new Track(L.id, trackTemplate(L)); this.rec.tracks.set(L.id, tr); }
-      tr.push(this.tau, inside, L.st);
+      if (tr.push(this.tau, inside, L.st)) changed++;
     }
+    this.energy.push(changed);
     this.tau++;
   }
   get full() { return this.tau >= this.maxTicks; }
