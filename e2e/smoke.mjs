@@ -4,7 +4,7 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 
-const BASE = process.env.URL ?? 'http://localhost:5173/';
+const BASE = process.env.URL ?? 'http://localhost:4173/';
 const OUT = new URL('../docs/screenshots/', import.meta.url).pathname;
 fs.mkdirSync(OUT, { recursive: true });
 const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome';
@@ -46,6 +46,7 @@ const state = (js) => page.evaluate(js);
 
 // -- real input path: frame, pin, record, play
 await walkTo(-5, -12);
+await state(() => { window.__game.pitch = -1.2; });
 await hit('KeyQ'); await frames(1);
 await state(() => { window.__game.input.clicks.push(0); });
 await frames(1);
@@ -56,6 +57,7 @@ await frames(200);
 await hit('KeyR'); await frames(1);
 const rec = await state(() => { const r = window.__game.world.recordings[0]; return r && { len: r.length, kf: r.keyframes, tracks: r.tracks.size }; });
 check('recording stored with real keyframes', rec && rec.len > 150 && rec.kf > 0, JSON.stringify(rec));
+await state(() => { window.__game.pitch = 0; });
 await walkTo(0, -14);
 await hit('KeyL'); await frames(1); await hit('KeyT'); await frames(60);
 check('replay: echo presses the plate and opens the door', await state(() => window.__game.world.R.get('plateA') === 1 && window.__game.world.byId.get('doorA').st[0] > 0.9));

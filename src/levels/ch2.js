@@ -34,6 +34,7 @@ export default {
   id: 'ch2', index: 2, title: 'The Machine That Remembers', subtitle: 'Mnemonic Engine', theme: 'machine',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 3, maxTicks: 720, maxVolume: [12, 8, 16], modes: ['once', 'loop', 'pingpong', 'hold'] },
+  par: { recordings: 3 },
   killY: -14,
   entities: E,
   sections: [

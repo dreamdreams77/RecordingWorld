@@ -37,6 +37,7 @@ export default {
   id: 'ch3', index: 3, title: 'The Architecture of Absence', subtitle: 'The Vestibule Quarter', theme: 'absence',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 4, maxTicks: 900, maxVolume: [14, 10, 16], modes: ['once', 'loop', 'pingpong', 'hold'] },
+  par: { recordings: 0 },
   killY: -14,
   entities: E,
   sections: [

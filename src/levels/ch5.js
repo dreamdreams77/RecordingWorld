@@ -41,6 +41,7 @@ export default {
   id: 'ch5', index: 5, title: 'The Infinite Observatory', subtitle: 'The Great Shaft', theme: 'observatory',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 4, maxTicks: 600, maxVolume: [18, 12, 26], modes: ['once', 'loop', 'pingpong', 'hold'], sound: true },
+  par: { recordings: 7 },
   killY: -16, sound: true,
   entities: E,
   sections: [

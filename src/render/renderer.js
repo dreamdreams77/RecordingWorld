@@ -33,6 +33,10 @@ export class GameRenderer {
     this.applyQuality(settings.quality);
   }
 
+  applyQualityQuiet(name) { // used by the failure fallback: switch preset without rebuilding (loadLevel rebuilds next)
+    this.settings.quality = name; this.q = { ...QUALITY[name] };
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.q.pixelRatio)); this.renderer.shadowMap.enabled = this.q.shadows;
+  }
   applyQuality(name) {
     this.settings.quality = name;
     this.q = { ...QUALITY[name] };

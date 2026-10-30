@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome', args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--no-sandbox'] });
+const p = await b.newPage({ viewport: { width: 960, height: 540 } });
+const logs=[]; p.on('console',m=>{ if(['error','warning'].includes(m.type())) logs.push(m.type()+': '+m.text().slice(0,200)); }); p.on('pageerror',e=>logs.push('PAGEERR '+e.message+'\n'+(e.stack||'').slice(0,400)));
+await p.goto(process.argv[2]);
+await p.waitForFunction(()=>window.__game?.state==='title',null,{timeout:120000});
+console.log('title reached');
+if (process.argv[3]==='key') { await p.keyboard.press('Enter'); } else await p.click('text=Begin');
+await p.waitForTimeout(20000);
+console.log('state', await p.evaluate(()=>window.__game.state), await p.evaluate(()=>document.getElementById('loading')?.innerText));
+console.log(logs.slice(0,12).join('\n'));
+await b.close();

@@ -34,6 +34,7 @@ export default {
   id: 'ch1', index: 1, title: 'The Observation Chamber', subtitle: 'Calibration Run 0', theme: 'chamber',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 2, maxTicks: 480, maxVolume: [10, 8, 16], modes: ['once', 'loop'] },
+  par: { recordings: 3 },
   killY: -14,
   entities: E,
   sections: [

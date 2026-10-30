@@ -40,6 +40,7 @@ export default {
   id: 'ch4', index: 4, title: 'The Acoustic World', subtitle: 'The Resonant Cathedral', theme: 'acoustic',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 4, maxTicks: 1200, maxVolume: [14, 10, 16], modes: ['once', 'loop', 'pingpong', 'hold'], sound: true },
+  par: { recordings: 4 },
   killY: -14, sound: true,
   entities: E,
   sections: [

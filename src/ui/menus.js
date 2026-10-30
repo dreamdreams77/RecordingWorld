@@ -34,6 +34,13 @@ export class Menus {
         if (this.current === 'pause') this.game.resume();
         else if (['settings', 'controls', 'archive', 'levels'].includes(this.current)) this.back();
       }
+      if (this.current && ['Enter', 'NumpadEnter'].includes(e.code) && !['loading', 'confirm-x'].includes(this.current)) {
+        const ae = document.activeElement;
+        if (!(ae && ae.tagName === 'BUTTON' && this.screens[this.current].contains(ae))) {
+          const first = this.screens[this.current].querySelector('button:not([disabled])');
+          if (first) { first.click(); e.preventDefault(); }
+        }
+      }
       if (this.current && (e.code === 'ArrowDown' || e.code === 'ArrowUp')) this.moveFocus(e.code === 'ArrowDown' ? 1 : -1, e);
     });
   }
@@ -82,7 +89,7 @@ export class Menus {
         m.appendChild(this.btn('Archive', () => this.show('archive', true), 'recovered logs'));
         m.appendChild(this.btn('Settings', () => this.show('settings', true)));
         m.appendChild(this.btn('Controls', () => this.show('controls', true)));
-        const f = el('div', 'tiny', 'Headphones recommended · mouse and keyboard · Chrome, Edge, Firefox'); f.style.marginTop = '18px'; m.appendChild(f);
+        const f = el('div', 'tiny', 'Press Enter to begin · Headphones recommended · mouse and keyboard · Chrome, Edge, Firefox'); f.style.marginTop = '18px'; m.appendChild(f);
         break;
       }
       case 'levels': {
@@ -177,17 +184,40 @@ export class Menus {
     this.current = 'loading';
     s.querySelector('#ltxt').textContent = text; s.querySelector('.bar i').style.width = `${p * 100}%`;
   }
-  async start(id) {
+  async start(id, snapshot = null) {
     this.game.audio?.init();
-    this.loading('Preparing', 0.02);
-    await this.game.startLevel(id, { loadingCb: (p, t) => this.loading(t, p) });
-    this.hide();
+    this.loading(snapshot ? 'Restoring the recording' : 'Preparing', 0.02);
+    const order = ['ultra', 'high', 'medium', 'low'];
+    for (;;) {
+      try {
+        await this.game.startLevel(id, { snapshot, loadingCb: (p, t) => this.loading(t, p) });
+        this.hide();
+        return;
+      } catch (err) {
+        console.error('Level failed to start', err);
+        const q = this.game.settings.quality, next = order[order.indexOf(q) + 1];
+        if (next) { // some GPUs reject a heavy effect: step down one preset and retry
+          this.game.settings.quality = next; this.game.renderer.q = { ...QUALITY[next] }; this.game.renderer.applyQualityQuiet?.(next);
+          this.loading(`Graphics error on ${q}; retrying on ${next}`, 0.05);
+          continue;
+        }
+        this.showError(err);
+        return;
+      }
+    }
   }
-  async startFromSnapshot(snap) {
-    this.game.audio?.init();
-    this.loading('Restoring the recording', 0.02);
-    await this.game.startLevel(snap.levelId, { snapshot: snap, loadingCb: (p, t) => this.loading(t, p) });
-    this.hide();
+  startFromSnapshot(snap) { return this.start(snap.levelId, snap); }
+  showError(err) {
+    const s = this.screens.confirm; s.innerHTML = '';
+    const m = el('div', 'menu'); s.appendChild(m);
+    m.innerHTML = `<h1>Could not start</h1><div class="sub">The renderer reported an error</div><p>${String(err?.message ?? err).slice(0, 300)}</p>`;
+    m.appendChild(this.btn('Back to title', () => { s.classList.remove('on'); this.game.toTitle(); }));
+    for (const [k, v] of Object.entries(this.screens)) v.classList.toggle('on', k === 'confirm');
+    this.current = 'confirm-x';
+  }
+  rating(used, par) {
+    const tier = used <= par ? 'Gold' : used <= par + 2 ? 'Silver' : 'Bronze';
+    return `${tier} — ${used} recording${used === 1 ? '' : 's'} (par ${par}, from the scripted solution)`;
   }
   showComplete(level, director, ticks) {
     const s = this.screens.complete; s.innerHTML = '';
@@ -196,7 +226,8 @@ export class Menus {
       <p>${level.narrative?.outro ?? ''}</p>
       <div class="keys"><b>Time</b><span>${mmss(ticks)} (${ticks} ticks)</span><b>Recordings</b><span>${director.stats.recordings}</span>
       <b>Logs</b><span>${[...director.found].filter((d) => level.discoveries.some((x) => x.id === d)).length} / ${level.discoveries.length}</span>
-      <b>Experiments</b><span>${[...director.done].length} / ${level.experiments.length}</span></div><br>`;
+      <b>Experiments</b><span>${[...director.done].length} / ${level.experiments.length}</span>
+      <b>Economy</b><span>${this.rating(director.stats.recordings, level.par?.recordings ?? 0)}</span></div><br>`;
     if (idx >= 0 && idx < CAMPAIGN.length - 1) m.appendChild(this.btn(`Chapter ${ROMAN[idx + 2]}: ${LEVELS[CAMPAIGN[idx + 1]].title}`, () => this.start(CAMPAIGN[idx + 1])));
     m.appendChild(this.btn('Replay chapter', () => this.start(level.id)));
     m.appendChild(this.btn('Chapters', () => this.show('levels')));

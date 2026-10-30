@@ -388,6 +388,7 @@ export class Game {
     this.audio?.update(w, this.renderer.camera, dt, { tone });
     this.renderFrame(dt, this.acc * 60);
     this.runCoach(dt);
+    this.observe();
     this.hud.update(this.hudModel(tone));
   }
   runCoach(dt) {
@@ -400,12 +401,42 @@ export class Game {
     else if (c.step === 3) { say('Step off the plate, then press T to play it back. Press L first to loop.'); if (w.playbacks[0]?.active) c.step = 4; }
     else if (c.step === 4) { c.said = null; this.hud.subtitle.style.opacity = 0; c.step = 5; }
   }
+  /** One-time explanations of the reconciliation rules, shown the first time the player meets each. */
+  teach(key, title, text, kind = '') {
+    const seen = this.progress.seen;
+    if (seen[key]) return; seen[key] = 1; saveProgress(this.progress);
+    this.hud.toast(text, kind || 'good', title, 14000);
+  }
+  /** The Archivist notices how you play. */
+  react(key, text, ms = 7000) {
+    const seen = this.progress.seen;
+    if (seen[key]) return; seen[key] = 1; saveProgress(this.progress);
+    this.hud.say(text, 'THE ARCHIVIST', ms);
+  }
+  observe() {
+    const w = this.world; if (!w || this.level.sandbox) return;
+    for (const c of w.conflicts) {
+      if (c.kind === 'state') this.teach('r-state', 'RULE — RECONCILIATION', 'The same object disagrees across histories (gold outline). Doors: open in any history ⇒ open. Bridges and matter: present in any history ⇒ present. Signals: powered in any history ⇒ powered. Flywheels: histories add.', '');
+      else if (c.kind === 'overlap') this.teach('r-overlap', 'RULE — TEMPORAL COLLISION', 'Two histories claim the same matter (white-hot shell). Overlap drains the recordings’ coherence; at zero an echo collapses. Cross quickly, or keep histories apart.', 'warn');
+      else if (c.kind === 'displace') this.teach('r-displace', 'RULE — DISPLACEMENT', 'Echo matter is solid. A body it overlaps is shoved out along the shortest axis, and carried if it stands on it.', 'warn');
+    }
+    if (w.overruled.size) this.teach('r-aperture', 'RULE — APERTURES', 'A door held open by any history is open for everyone. The present door is still closed — it has simply been overruled.');
+    for (const [k, v] of w.R) if (v > 1.5 && w.byId.get(k)?.def.type === 'flywheel') { this.teach('r-sum', 'RULE — SUPERPOSITION', 'Machine histories add: a flywheel at 1.0 now and 1.0 remembered reads 2.0. Governors compare the sum.'); break; }
+    if (w.playbacks.some((p) => p?.active && p.mode === 'hold')) this.teach('r-hold', 'HOLD', 'A held recording keeps its final frame in the world. What was, stays.');
+    const n = w.stats.recordingsMade;
+    if (n >= 1) this.react('n-first', 'Your first recording. Notice that the world did not pause for it. It never does.');
+    if (w.playbacks.some((p) => p?.active)) this.react('n-echo', 'That is you, a few seconds ago, still doing whatever you were doing. Try not to feel judged.');
+    if (n + this.progress.stats.recordings >= 12) this.react('n-12', 'Twelve recordings. You are beginning to repeat yourself — which is, I suppose, the point.');
+    if (w.playbacks.filter((p) => p?.active).length >= 3) this.react('n-three', 'Three histories at once. Some rooms are now more past than present.');
+    if (this.progress.stats.deaths >= 5) this.react('n-falls', 'Falling is only a short recording you did not intend to make.');
+  }
   handleEvents() {
     for (const e of this.world.drainEvents()) {
       switch (e.type) {
         case 'fell': case 'crushed': this.progress.stats.deaths++; this.hud.toast(e.type === 'fell' ? 'Temporal shock: returned to the last checkpoint.' : 'Crushed between histories. Returned to checkpoint.', 'warn'); this.audio?.event('shock'); this.renderer.pulse(0.3); this.yaw = this.world.checkpoint.yaw; break;
-        case 'collapse': this.hud.toast(`Recording ${e.slot + 1} lost coherence and collapsed. It is still stored — replay it more carefully.`, 'warn'); this.audio?.event('collapse'); this.renderer.pulse(0.2); break;
+        case 'collapse': this.teach('r-collapse', 'COLLAPSE', 'Coherence reached zero. The echo is gone but the recording is intact. History can be replayed; it just cannot be forced.', 'warn'); this.hud.toast(`Recording ${e.slot + 1} lost coherence and collapsed. It is still stored — replay it more carefully.`, 'warn'); this.audio?.event('collapse'); this.renderer.pulse(0.2); break;
         case 'record-stop': this.hud.toast(`Recording ${e.slot + 1} stored — ${(e.ticks / 60).toFixed(1)} s, ${e.keyframes} keyframes.`, 'good'); break;
+        case 'record-empty': this.hud.toast('The volume was empty — nothing was recorded. Pin the frame around something (Q, aim, click).', 'warn'); break;
         case 'crate-lost': this.hud.toast('A crate fell out of reality and was recalled.', 'warn'); break;
         case 'lever-on': case 'lever-off': case 'mirror-turn': this.audio?.event('lever'); break;
         case 'held': case 'ended': this.audio?.event('end'); break;

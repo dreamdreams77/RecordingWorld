@@ -22,6 +22,7 @@ for (const [id, level] of Object.entries(LEVELS)) {
     world.step = (inp) => { step(inp); dir.update(); };
     solve(bot, dir, { experiments: false });
     assert.ok(dir.completed, `level not completed; player at ${[...world.player.st].slice(0, 3).map((n) => n.toFixed(1))}`);
+    assert.ok(dir.stats.recordings <= level.par.recordings, `solver used ${dir.stats.recordings} recordings, par is ${level.par.recordings}`);
     const seconds = world.tick / 60;
     console.log(`    ${id}: solved in ${seconds.toFixed(0)} s of simulated play, ${dir.stats.recordings} recordings`);
   });

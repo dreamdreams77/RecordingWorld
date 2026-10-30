@@ -29,6 +29,7 @@ export default {
   id: 'ch6', index: 6, title: 'The World Is a Recording', subtitle: 'The Master Record', theme: 'record',
   spawn: { pos: [0, 0, 4], yaw: 0 },
   caps: { slots: 4, maxTicks: 600, maxVolume: [18, 12, 26], modes: ['once', 'loop', 'pingpong', 'hold'], sound: true },
+  par: { recordings: 7 },
   killY: -16, sound: true,
   entities: E,
   sections: [

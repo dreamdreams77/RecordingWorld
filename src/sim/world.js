@@ -460,6 +460,7 @@ export class World {
     const r = this.recorder; if (!r) return null;
     this.recorder = null;
     if (r.tau < 2) { this.emit('record-abort', { slot: r.slot }); return null; }
+    if (r.rec.tracks.size === 0) { this.emit('record-empty', { slot: r.slot }); return null; } // nothing was inside the volume
     r.rec.finalize(r.tau);
     r.rec.uid = this.tick;
     this.stats.recordingsMade++;

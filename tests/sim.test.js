@@ -223,3 +223,10 @@ test('superposition: flywheel histories add (sum policy)', async () => {
   b.press('btn'); b.seconds(2.5);
   assert.ok(b.w.R.get('F') > 1.7, `echo + live > 1.7 (${b.w.R.get('F')})`);
 });
+
+test('recording an empty volume is rejected, not stored', () => {
+  const b = new Bot(arena([plate('p', [0, 0, -3])]));
+  b.w.startRecording(0, b.vol(10, 1, -20, 1, 1, 1)); b.step(30);
+  assert.equal(b.w.stopRecording(), null);
+  assert.equal(b.w.recordings[0], null);
+});
