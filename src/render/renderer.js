@@ -4,8 +4,10 @@
 import * as THREE from 'three';
 import { MaterialLibrary } from './materials.js';
 import { EntityViews, LightPool } from './entities.js';
-import { BeamFX, ConflictFX, FrameFX, RecordingFX } from './fx.js';
+import { BeamFX, ConflictFX, FrameFX, RecordingFX, SoundFieldFX } from './fx.js';
+import { levelBounds } from './scenery.js';
 import { PostFX } from './postfx.js';
+import { Props } from './props.js';
 import { makeSky, makeEnvironment } from './sky.js';
 import { buildScenery } from './scenery.js';
 import { QUALITY } from '../game/settings.js';
@@ -65,6 +67,8 @@ export class GameRenderer {
     this.sc = buildScenery(this.theme, { lib: this.lib, level, quality: this.q, theme: this.theme });
     this.scene.add(this.sc.group);
     this.sky = makeSky(this.theme); this.scene.add(this.sky);
+    this.baseHorizon = this.sky.material.uniforms.uHorizon.value.clone(); this.baseZenith = this.sky.material.uniforms.uZenith.value.clone(); this.baseFrozen = this.sky.material.uniforms.uFrozen.value;
+    this.emulsion = 0; this.sunrise = 0;
     this.env = makeEnvironment(this.renderer, this.theme, this.sc.panels);
     this.scene.environment = this.env; this.scene.environmentIntensity = 0.9;
     this.scene.fog = new THREE.FogExp2(this.sc.fog.color, this.sc.fog.density);
@@ -81,6 +85,8 @@ export class GameRenderer {
     this.views = new EntityViews(this.scene, this.lib, this.lights, this.q);
     this.beams = new BeamFX(this.scene); this.conflicts = new ConflictFX(this.scene, this.lib.time);
     this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene);
+    this.props = new Props(this.scene, this.lib, this.theme, this.level);
+    this.soundField = level.sound ? new SoundFieldFX(this.scene, levelBounds(level)) : null;
     if (this.q.reflections) this.setupReflection();
     this.post = new PostFX(this.renderer, this.scene, this.camera, this.q);
     this.resize();
@@ -148,6 +154,17 @@ export class GameRenderer {
     return true;
   }
 
+  setEmulsion(e, sun = 0) {
+    this.emulsion = e; this.sunrise = sun;
+    if (!this.sky) return;
+    const u = this.sky.material.uniforms;
+    u.uFrozen.value = sun > 0.15 ? 0 : (this.baseFrozen ?? u.uFrozen.value);
+    if (this.baseHorizon) {
+      u.uHorizon.value.copy(this.baseHorizon).lerp(new THREE.Vector3(0.95, 0.62, 0.34), sun);
+      u.uZenith.value.copy(this.baseZenith).lerp(new THREE.Vector3(0.12, 0.24, 0.55), sun);
+    }
+  }
+
   // -------------------------------------------------------------- per frame
   pulse(a = 0.18) { this.flash = Math.max(this.flash, this.settings.flashReduction ? a * 0.2 : a); }
 
@@ -179,12 +196,14 @@ export class GameRenderer {
     this.key.target.position.set(sx, 0, sz);
     this.key.position.set(sx + kd[0] * 70, kd[1] * 70, sz + kd[2] * 70);
     // scene sync
-    for (const f of this.sc.anim) f(this.clock);
+    for (const f of this.sc.anim) f(this.clock, world);
     this.views.sync(world, this.theme, dt, this.clock);
     this.beams.update(world, this.clock);
     const nConf = this.conflicts.update(world);
     this.recFx.update(world, { showVolumes: fs.ui.showVolumes, showTraj: fs.ui.showTraj, selected: fs.ui.selected });
     this.frameFx.set(fs.ui.frame, fs.ui.frameColor ?? 0xffffff, fs.ui.recording, this.clock);
+    this.props.update(this.clock, fs.found ?? new Set());
+    this.soundField?.update(world, this.clock);
     this.lights.flush(cam.position);
     // post parameters: interference grows with conflicts and lost coherence
     let incoh = 0; for (const pb of world.playbacks) if (pb?.active) incoh = Math.max(incoh, 1 - pb.coherence);
@@ -199,7 +218,7 @@ export class GameRenderer {
     this.post.render(dt, {
       time: this.clock, interference: this.settings.reducedMotion ? this.interf * 0.3 : this.interf, flash: this.flash,
       reducedMotion: this.settings.reducedMotion, highContrast: this.settings.highContrast, colorblind: this.settings.colorblind,
-      tint: this.sc.tint, exposure: this.sc.exposure, bloom: this.sc.bloom, contrast: 1.04,
+      tint: this.sc.tint, exposure: this.sc.exposure * (1 + this.sunrise * 0.35), bloom: this.sc.bloom, contrast: 1.04, emulsion: this.emulsion ?? 0, sunrise: this.sunrise ?? 0,
     });
     this.renderer.shadowMap.autoUpdate = true;
     const info = this.renderer.info.render;

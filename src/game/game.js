@@ -10,6 +10,7 @@ import { GameRenderer } from '../render/renderer.js';
 import { HUD } from '../ui/hud.js';
 import { Input } from './input.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { SPAWNABLE } from '../levels/sandbox.js';
 import { loadProgress, saveProgress, levelRecord, saveSnapshot, loadSnapshot } from './progress.js';
 
 const NOTE_KEYS = ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM'];
@@ -32,7 +33,11 @@ export class Game {
     this.yaw = 0; this.pitch = 0; this.lensFull = false; this.showVolumes = false; this.showTraj = false; this.dev = this.settings.devMode;
     this.acc = 0; this.last = performance.now(); this.fpsAcc = 0; this.fps = 60; this.pendingInteract = false;
     this.prev = new Float64Array(10); this.cur = new Float64Array(10);
+    this.sb = { item: 0, note: 1, link: null };
+    this.coach = { step: 0, t: 0 };
+    this.cine = null;
     this.renderer = new GameRenderer(this.canvas, this.settings);
+    this.canvas.addEventListener('click', () => { if (this.state === 'play' && !this.input.locked) this.input.lock(); });
     addEventListener('resize', () => this.resize());
     this.resize();
     this.applySettings();
@@ -52,10 +57,43 @@ export class Game {
     if (!locked && this.state === 'play') this.pause();
   }
 
+  // ------------------------------------------------------------------ title / attract mode
+  async startAttract() {
+    this.state = 'loading';
+    const level = LEVELS.ch1;
+    this.level = level; this.world = new World(level, { caps: { modes: level.caps.modes } }); this.director = new Director(this.world, level);
+    await this.renderer.loadLevel(level, this.world);
+    this.audio?.loadLevel(level, this.world);
+    this.state = 'title'; this.attractT = 0; this.last = performance.now();
+    this.menus?.show('title');
+  }
+  async toTitle() {
+    this.input.unlock(); this.cine = null; this.renderer.cinematic = null; this.renderer.setEmulsion(0, 0);
+    this.menus?.hide();
+    await this.startAttract();
+  }
+  attractFrame(dt) {
+    this.attractT += dt;
+    this.acc += dt; let n = 0;
+    while (this.acc >= 1 / 60 && n < 4) { this.world.step(IDLE); this.acc -= 1 / 60; n++; }
+    const t = this.attractT, z = 4 - ((t * 1.6) % 70);
+    this.renderer.cinematic = { pos: [Math.sin(t * 0.13) * 5, 2.3 + Math.sin(t * 0.21) * 0.5, z], target: [Math.sin(t * 0.09) * 2, 3.2, z - 14], fov: 62 };
+    const p = this.world.player.st; this.cur.set(p); this.prev.set(p);
+    this.renderer.render({ world: this.world, dt, cam: { x: p[0], y: p[1], z: p[2], yaw: 0, pitch: 0, speed: 0, ground: true }, found: new Set(), ui: { frame: null, selected: 0 } });
+    this.audio?.update(this.world, this.renderer.camera, dt, {});
+  }
+  applyQuality(name) {
+    this.settings.quality = name; saveSettings(this.settings);
+    this.menus?.loading('Rebuilding the renderer', 0.1);
+    const prev = this.menus?.current;
+    this.renderer.applyQuality(name);
+    Promise.resolve().then(() => { this.menus?.show(prev === 'loading' ? 'settings' : (this.state === 'pause' ? 'settings' : 'settings')); });
+  }
+
   // ------------------------------------------------------------------ level lifecycle
   async startLevel(id, { snapshot = null, loadingCb = () => {} } = {}) {
     const level = LEVELS[id];
-    this.state = 'loading';
+    this.state = 'loading'; this.cine = null; this.renderer.cinematic = null; this.renderer.setEmulsion(0, 0); this.coach = { step: 0, t: 0 }; this.sb.link = null;
     this.level = level;
     this.world = new World(level, { caps: { modes: level.caps.modes } });
     this.director = new Director(this.world, level, this.progress.levels[id]);
@@ -129,12 +167,13 @@ export class Game {
           break;
         }
         case 'tape': this.hud.toast(`${m.tape.name} loaded into slot ${m.slot + 1}.`, 'good', 'ARCHIVE TAPE'); this.audio?.event('tape'); break;
-        case 'complete': this.onComplete(); break;
+        case 'complete': this.onComplete(!!m.finale); break;
         default:
       }
     }
   }
-  onComplete() {
+  onComplete(finale = false) {
+    if (finale) { this.beginEnding(); return; }
     const r = levelRecord(this.progress, this.level.id);
     r.done = true;
     const ticks = this.world.tick;
@@ -150,12 +189,68 @@ export class Game {
     this.menus?.showComplete(this.level, this.director, ticks);
   }
 
+  // ------------------------------------------------------------------ the ending
+  beginEnding() {
+    this.state = 'cinematic'; this.input.unlock(); this.audio?.event('complete');
+    this.hud.cinema(true);
+    const R = (id) => id;
+    this.cine = {
+      t: 0, phase: 'reveal', emu: 0, sun: 0, next: 0, ending: null,
+      script: [
+        [1, 'Both of you. One standing, one remembered. For the first time since the beginning, they agree.', 'THE ARCHIVIST'],
+        [8, 'The chamber stops pretending.', 'THE ARCHIVIST'],
+        [14, 'Every hall you walked, every door, every star: recorded. Recording zero. The Last Day.', 'THE ARCHIVIST'],
+        [21, 'The tick counter was never a clock. It was a playhead. You are the playhead.', 'THE ARCHIVIST'],
+        [28, 'The Recollector did not record the world to study it. It recorded the world so the world would not end — and it needed something to play it back.', 'THE ARCHIVIST'],
+        [36, 'Everything you moved was reality’s memory of itself, still holding its shape, still arguing about what is true.', 'THE ARCHIVIST'],
+        [44, 'Beyond the last frame is the present. It has been waiting for the recording to finish.', 'THE ARCHIVIST'],
+      ],
+    };
+    this.progress.ending ??= 'seen'; saveProgress(this.progress);
+  }
+  cineFrame(dt) {
+    const c = this.cine, w = this.world;
+    c.t += dt;
+    this.acc += dt; let n = 0; while (this.acc >= 1 / 60 && n < 4) { w.step(IDLE); this.acc -= 1 / 60; n++; }
+    const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    const t = c.t, p = w.player.st;
+    if (c.phase === 'reveal') {
+      const k = ss(0, 40, t), L = (a, b) => a + (b - a) * k;
+      this.renderer.cinematic = { pos: [Math.sin(t * 0.08) * 16 * k, L(p[1] + 1, 62), L(p[2] + 5, -62)], target: [0, L(1.5, 2), L(p[2] - 6, -112)], fov: L(70, 52) };
+      c.emu = ss(7, 24, t) * 0.95;
+      while (c.next < c.script.length && t >= c.script[c.next][0]) { const [, txt, who] = c.script[c.next++]; this.hud.say(txt, who, 6800); }
+      if (t > 52 && !c.asked) { c.asked = true; this.menus.showChoice(() => this.endWith('release'), () => this.endWith('hold')); }
+    } else if (c.phase === 'release') {
+      const k = ss(0, 9, t - c.t0);
+      c.emu = 0.95 * (1 - k); c.sun = k;
+      const e = this.renderer.cinematic; if (e) e.pos[1] += dt * 0.5;
+      if (t - c.t0 > 9 && !c.credits) { c.credits = true; this.menus.showCredits('release', () => this.toTitle()); }
+    } else if (c.phase === 'hold') {
+      const a = (t - c.t0) * 0.12;
+      this.renderer.cinematic = { pos: [Math.sin(a) * 40, 36, -112 + Math.cos(a) * 40], target: [0, 2, -118], fov: 58 };
+      c.emu = 0.95;
+      if (t - c.t0 > 8 && !c.credits) { c.credits = true; this.menus.showCredits('hold', () => this.toTitle()); }
+    }
+    this.renderer.setEmulsion(c.emu, c.sun);
+    if (!this.testNoRender) this.renderer.render({ world: w, dt, cam: { x: p[0], y: p[1], z: p[2], yaw: 0, pitch: 0, speed: 0, ground: true }, found: this.director.found, ui: { frame: null, selected: 0 } });
+    this.audio?.update(w, this.renderer.camera, dt, {});
+  }
+  endWith(kind) {
+    const c = this.cine; c.phase = kind; c.t0 = c.t; c.credits = false; this.menus.hide(); this.hud.layer.style.display = 'none';
+    this.progress.ending = kind; this.progress.sandbox = true;
+    const r = levelRecord(this.progress, this.level.id); r.done = true; saveProgress(this.progress);
+    this.hud.say(kind === 'release' ? 'The playhead lifts. The first thing the present does is move.' : 'The frame holds. The last day begins again, and you are in it.', 'THE ARCHIVIST', 8000);
+    this.audio?.event('complete');
+  }
+
   // ------------------------------------------------------------------ per-frame control
   frame(now) {
     requestAnimationFrame((t) => this.frame(t));
     const dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
     this.fps += (1 / Math.max(dt, 1e-4) - this.fps) * 0.05;
     if (this.state === 'play') this.playFrame(dt);
+    else if (this.state === 'title') this.attractFrame(dt);
+    else if (this.state === 'cinematic') this.cineFrame(dt);
     else if (this.state === 'pause' || this.state === 'ended') this.drawIdle(dt);
     this.input.endFrame();
   }
@@ -209,8 +304,33 @@ export class Game {
       if (tape && !w.aimedInteractable()) this.director.loadTape(tape, this.selected);
       else this.pendingInteract = true;
     }
+    if (I.hit('KeyU')) { const n = w.playAll({ mode: w.playbacks.find((p) => p)?.mode }); if (n) { this.audio?.event('play'); this.hud.toast(`${n} recordings started on the same tick`, 'good'); } }
     if (I.hit('KeyP') && this.settings.devMode) this.showVolumes = !this.showVolumes;
+    if (this.level.sandbox) this.sandboxKeys();
   }
+  // ------------------------------------------------------------------ sandbox toolkit
+  sandboxKeys() {
+    const I = this.input, w = this.world, sb = this.sb;
+    if (I.hit('KeyB')) { sb.item = (sb.item + 1) % SPAWNABLE.length; }
+    if (I.hit('KeyJ')) { sb.note = (sb.note % 7) + 1; }
+    if (I.hit('Enter')) {
+      const hit = this.aimHit(30), item = SPAWNABLE[sb.item];
+      if (hit.t !== null) { w.spawn(item.make([Math.round(hit.p[0] * 2) / 2, Math.max(0, hit.p[1]), Math.round(hit.p[2] * 2) / 2], sb.note)); this.audio?.event('pin'); }
+    }
+    const aimed = () => { const { o, d } = this.aimRay(); const p = w.pick(o, d, 30); return p && !p.item.echo ? p.item : null; };
+    if (I.hit('Delete')) { const a = aimed(); if (a?.def.dyn) { w.removeEntity(a.id); w.refreshDerived(); this.audio?.event('stop'); } }
+    if (I.hit('KeyX')) { const a = aimed(); if (a && Array.isArray(a.def.in)) { a.def.in = []; this.hud.toast(`${a.id}: inputs cleared`, ''); } }
+    if (I.hit('KeyF')) {
+      const a = aimed(); if (!a) return;
+      if (!sb.link) { sb.link = a.id; this.hud.toast(`Link source: ${a.id}. Now aim at a sink and press F.`, 'good'); }
+      else if (Array.isArray(a.def.in)) {
+        const tag = I.held('ShiftLeft', 'ShiftRight') ? `!${sb.link}` : sb.link;
+        if (!a.def.in.includes(tag)) a.def.in.push(tag);
+        this.hud.toast(`${a.id} ← ${tag}`, 'good'); sb.link = null; this.audio?.event('lever');
+      } else { this.hud.toast(`${a.id} cannot take an input.`, 'warn'); sb.link = null; }
+    }
+  }
+
   defaultVolume() {
     const p = this.world.player.st, h = this.frameHalf;
     return { x0: p[0] - h[0], x1: p[0] + h[0], y0: p[1] - 1.2, y1: p[1] - 1.2 + h[1] * 2, z0: p[2] - h[2], z1: p[2] + h[2] };
@@ -267,7 +387,18 @@ export class Game {
     this.cur.set(w.player.st);
     this.audio?.update(w, this.renderer.camera, dt, { tone });
     this.renderFrame(dt, this.acc * 60);
+    this.runCoach(dt);
     this.hud.update(this.hudModel(tone));
+  }
+  runCoach(dt) {
+    if (this.level.id !== 'ch1' || !this.settings.hints || this.director.sectionIndex !== 0) return;
+    const c = this.coach, w = this.world; c.t += dt;
+    const say = (t) => { if (c.said !== t) { c.said = t; this.hud.say(t, 'RECOLLECTOR', 60000); } };
+    if (c.step === 0) { if (c.t > 6) say('Walk to the plate. Press Q, aim at it, and click to pin a recording volume around it.'); if (this.pinned || w.recorder) c.step = 1; }
+    else if (c.step === 1) { say('Stand on the plate, then press R. Everything inside the frame is being remembered.'); if (w.recorder) c.step = 2; }
+    else if (c.step === 2) { say('Stay still for a few seconds, then press R again to store the recording.'); if (!w.recorder && w.recordings[0]) c.step = 3; }
+    else if (c.step === 3) { say('Step off the plate, then press T to play it back. Press L first to loop.'); if (w.playbacks[0]?.active) c.step = 4; }
+    else if (c.step === 4) { c.said = null; this.hud.subtitle.style.opacity = 0; c.step = 5; }
   }
   handleEvents() {
     for (const e of this.world.drainEvents()) {
@@ -289,7 +420,7 @@ export class Game {
     if (w.recorder) { frame = w.recorder.rec.volume; color = 0xff8a5a; }
     else if (this.pinned) { frame = this.pinned; color = SLOT_HEX[this.selected % 6]; }
     else if (this.frameMode) { frame = this.previewVolume(); color = 0xe8c88a; }
-    this.renderer.render({ world: w, dt, cam, ui: { frame, frameColor: color, recording: !!w.recorder, selected: this.selected, showVolumes: this.showVolumes, showTraj: this.showTraj } });
+    this.renderer.render({ world: w, dt, cam, found: this.director.found, ui: { frame, frameColor: color, recording: !!w.recorder, selected: this.selected, showVolumes: this.showVolumes, showTraj: this.showTraj } });
   }
   hudModel(tone) {
     const w = this.world;
@@ -319,6 +450,7 @@ export class Game {
     if (w.level.id !== 'ch1' || this.director.sectionIndex >= 0) parts.push(k('E', 'use'));
     if (w.level.sound || w.level.id !== 'ch1') parts.push(k('Z–M', `voice${tone ? ' ' + NOTE_NAMES[tone - 1] : ''}`));
     if (tape) parts.unshift(k('E', `load tape: ${tape.name}`));
+    if (this.level.sandbox) parts.push(k('B', `item: ${SPAWNABLE[this.sb.item].label}`), k('J', `note ${NOTE_NAMES[this.sb.note - 1]}`), k('Enter', 'place'), k('F', this.sb.link ? `link ${this.sb.link} →` : 'link'));
     return parts.join('');
   }
 }

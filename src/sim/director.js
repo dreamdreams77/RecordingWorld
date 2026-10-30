@@ -43,6 +43,7 @@ export class Director {
     for (const x of this.experiments) {
       if (!this.done.has(x.id) && (w.R.get(x.signal) ?? 0) > 0.5) { this.done.add(x.id); this.say('experiment', { experiment: x }); }
     }
+    if (!this.completed && this.level.finale && (w.R.get(this.level.finale.signal) ?? 0) > 0.5) { this.completed = true; this.say('complete', { finale: true }); }
     if (!this.completed && this.exitBox && containsPoint(this.exitBox, p[0], p[1], p[2])) { this.completed = true; this.say('complete', {}); }
   }
   enterSection(i) {

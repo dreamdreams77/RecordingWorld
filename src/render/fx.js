@@ -172,3 +172,42 @@ export class RecordingFX {
     }
   }
 }
+
+const NOTE_COLORS = [0xff5a5a, 0xffa13d, 0xffe14d, 0x74e07a, 0x45d6e0, 0x6c86ff, 0xc77dff];
+
+/** Cymatic floor: every active sound source in the world draws expanding rings, coloured by note
+ *  (present) or by recording slot (history). It is a literal view of the acoustic field the
+ *  resonators hear, minus occlusion. */
+export class SoundFieldFX {
+  constructor(scene, b) {
+    this.max = 8;
+    const w = b.x1 - b.x0 + 24, d = b.z1 - b.z0 + 24;
+    this.uniforms = { uTime: { value: 0 }, uSrc: { value: Array.from({ length: this.max }, () => new THREE.Vector4(0, 0, 0, 0)) }, uCol: { value: Array.from({ length: this.max }, () => new THREE.Color(1, 1, 1)) } };
+    const m = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, uniforms: this.uniforms,
+      vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
+      fragmentShader: `uniform float uTime; uniform vec4 uSrc[8]; uniform vec3 uCol[8]; varying vec3 vW;
+        void main(){ vec3 c = vec3(0.); 
+          for (int i = 0; i < 8; i++) { vec4 s = uSrc[i]; if (s.w < 0.01) continue;
+            float d = distance(vW.xz, s.xz); float k = 1.4 + s.y * 0.0; 
+            float ring = pow(0.5 + 0.5 * sin(d * 2.4 - uTime * 4.0), 6.0);
+            float fall = exp(-d * 0.11) * smoothstep(26.0, 6.0, d); 
+            float cym = 0.5 + 0.5 * sin(vW.x * 3.0 * s.y) * sin(vW.z * 3.0 * s.y);
+            c += uCol[i] * (ring * 0.55 + cym * 0.12) * fall * s.w; }
+          gl_FragColor = vec4(c, 1.0); }`,
+    });
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m);
+    this.mesh.rotation.x = -Math.PI / 2; this.mesh.position.set((b.x0 + b.x1) / 2, 0.03, (b.z0 + b.z1) / 2); this.mesh.renderOrder = 2;
+    scene.add(this.mesh);
+  }
+  update(world, time) {
+    this.uniforms.uTime.value = time;
+    const S = this.uniforms.uSrc.value, C = this.uniforms.uCol.value;
+    for (let i = 0; i < this.max; i++) {
+      const s = world.sources[i];
+      if (!s) { S[i].w = 0; continue; }
+      S[i].set(s.pos[0], s.note, s.pos[2], 1);
+      C[i].setHex(s.layer === 0 ? NOTE_COLORS[(s.note - 1) % 7] : SLOT_HUES[(s.layer - 1) % SLOT_HUES.length]);
+    }
+  }
+}

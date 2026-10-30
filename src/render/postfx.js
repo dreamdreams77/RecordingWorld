@@ -14,11 +14,11 @@ const GradeShader = {
     tDiffuse: { value: null }, uTime: { value: 0 }, uInterference: { value: 0 }, uAb: { value: 0.0012 },
     uGrain: { value: 0.035 }, uVignette: { value: 0.55 }, uExposure: { value: 1.0 }, uContrast: { value: 1.0 },
     uShadowTint: { value: new THREE.Color(0.9, 1.0, 1.12) }, uHighTint: { value: new THREE.Color(1.1, 1.02, 0.9) },
-    uSat: { value: 1.0 }, uFlash: { value: 0 }, uCB: { value: 0 }, uPulse: { value: new THREE.Color(1, 0.4, 0.3) },
+    uSat: { value: 1.0 }, uFlash: { value: 0 }, uCB: { value: 0 }, uEmu: { value: 0 }, uSun: { value: 0 }, uPulse: { value: new THREE.Color(1, 0.4, 0.3) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime, uInterference, uAb, uGrain, uVignette, uExposure, uContrast, uSat, uFlash; uniform int uCB;
+    uniform sampler2D tDiffuse; uniform float uEmu, uSun; uniform float uTime, uInterference, uAb, uGrain, uVignette, uExposure, uContrast, uSat, uFlash; uniform int uCB;
     uniform vec3 uShadowTint, uHighTint, uPulse; varying vec2 vUv;
     float hash(float n){ return fract(sin(n*91.3458)*47453.5453); }
     float hash2(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
@@ -40,6 +40,13 @@ const GradeShader = {
       col = max(col, 0.0);
       col *= 1.0 - uVignette * smoothstep(0.25, 0.95, length(d) * 1.35);
       col += (hash2(uv * vec2(1920.0, 1080.0) + uTime) - 0.5) * uGrain * (0.4 + 0.6 * (1.0 - clamp(l, 0.0, 1.0)));
+      if (uEmu > 0.001) { // the present revealed as a recording: emulsion duotone, scan slices, a rolling wipe
+        vec3 duo = mix(vec3(0.05, 0.035, 0.02), vec3(1.3, 0.96, 0.6), smoothstep(0.0, 1.0, l));
+        col = mix(col, duo * (0.35 + l * 1.15), uEmu);
+        col *= 1.0 - uEmu * 0.14 * step(0.5, fract(vUv.y * 160.0 + uTime * 0.25));
+        col += vec3(1.0, 0.8, 0.5) * uEmu * 0.5 * smoothstep(0.015, 0.0, abs(vUv.y - fract(uTime * 0.07)));
+      }
+      col = mix(col, col * vec3(1.18, 1.06, 0.9) + vec3(0.06, 0.04, 0.02), uSun);
       col += uPulse * uFlash * (0.5 + 0.5 * smoothstep(0.2, 0.9, length(d)));
       if (uCB == 1) { // protanopia daltonisation
         mat3 m = mat3(0.567, 0.558, 0.0, 0.433, 0.442, 0.242, 0.0, 0.0, 0.758); col = m * col;
@@ -79,7 +86,7 @@ export class PostFX {
     u.uGrain.value = params.reducedMotion ? 0.015 : 0.035;
     u.uContrast.value = params.highContrast ? 1.22 : params.contrast ?? 1;
     u.uExposure.value = params.exposure ?? 1;
-    u.uCB.value = params.colorblind | 0;
+    u.uCB.value = params.colorblind | 0; u.uEmu.value = params.emulsion ?? 0; u.uSun.value = params.sunrise ?? 0;
     if (params.tint) { u.uShadowTint.value.set(...params.tint.shadow); u.uHighTint.value.set(...params.tint.high); }
     this.bloom.strength = params.bloom ?? 0.5;
     this.composer.render(dt);
