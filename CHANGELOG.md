@@ -6,6 +6,7 @@
 * **Story as state:** barks from recurring figures build the Operator's trust and a ledger of *truths* shown in the Archive; trust, the ending and the Fork's canon become flags that gate actors, tapes and discoveries in later chapters. Verified by new bot variants (trusted Operator in IV; archive/observatory canon in V and VI).
 * **Feel:** shockwave rings and sparks for reconciliation, canon, shatter and collapse; landing dip, strafe lean and speed FOV (all off under *reduced motion*).
 * **Tooling:** `npm run bench` reports per-chapter simulation cost (slowest chapter ≈ 0.23 ms/step with six echoes).
+* **Chapter set pieces:** I calibration sweeps travel the hall; II steam plumes at every flywheel and belt; III absent architecture drifts as debris; IV resonant motes spiral from tuned mechanisms; V a colossal astrolabe and meteors; VI flickering film frames. Plus chapter title cards, generated wall trim and echo trails.
 * **Touch controls** for phones/tablets (move stick, look, tap-to-pin, action buttons, notes), Low preset by default on touch devices, blank-page guard with instructions, GitHub Pages workflow.
 * Fix found by the browser test: the ledger's bare `canon` interact event crashed the canon handler.
 

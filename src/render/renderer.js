@@ -11,6 +11,7 @@ import { Props } from './props.js';
 import { makeSky, makeEnvironment } from './sky.js';
 import { buildScenery } from './scenery.js';
 import { dressArchitecture } from './dressing.js';
+import { buildHero } from './heroes.js';
 import { QUALITY } from '../game/settings.js';
 import { EYE_HEIGHT } from '../sim/types.js';
 import { disposeTextures } from './textures.js';
@@ -91,6 +92,7 @@ export class GameRenderer {
     this.views = new EntityViews(this.scene, this.lib, this.lights, this.q);
     this.beams = new BeamFX(this.scene); this.conflicts = new ConflictFX(this.scene, this.lib.time);
     this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene); this.burstFx = new BurstFX(this.scene); this.trails = new TrailFX(this.scene);
+    this.hero = buildHero(this.theme, level, this.q); this.scene.add(this.hero.group);
     this.props = new Props(this.scene, this.lib, this.theme, this.level);
     this.soundField = level.sound ? new SoundFieldFX(this.scene, levelBounds(level)) : null;
     if (this.q.reflections) this.setupReflection();
@@ -221,6 +223,7 @@ export class GameRenderer {
     this.soundField?.update(world, this.clock);
     this.burstFx?.update(dt, this.camera);
     this.trails?.update(world);
+    this.hero?.update(this.clock, world, dt);
     this.lights.flush(cam.position);
     // post parameters: interference grows with conflicts and lost coherence
     let incoh = 0; for (const pb of world.playbacks) if (pb?.active) incoh = Math.max(incoh, 1 - pb.coherence);
