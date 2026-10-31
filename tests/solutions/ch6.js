@@ -57,9 +57,39 @@ export default function solve(bot, dir, opts = {}) {
   if (bot.p[1] < -1) throw new Error(`the lift did not carry us up (y=${bot.p[1].toFixed(2)})`);
   bot.walkTo(0, -123);
   w.stop(0);
+  // X1 the Witness: replay yourself on the plate, then leave yourself out of the memory
+  bot.walkTo(0, -132); bot.walkTo(1, -137); bot.walkTo(6, -137);
+  w.startRecording(0, vol(6, 1.5, -137, 2.5, 3, 2.5), 'on the plate'); bot.step(60); w.stopRecording();
+  bot.walkTo(1, -137); bot.walkTo(0, -140);
+  w.play(0, { mode: 'loop' }); bot.step(20);
+  if (bot.signal('g1') > 0.1) throw new Error('the door must not open while the Eye sees the echo');
+  w.muteTrack(0, 'player');
+  for (let i = 0; i < 200 && bot.st('g1', 's') < 0.98; i++) bot.step(1);
+  bot.walkTo(0, -144.5); bot.walkTo(0, -149);
+  w.stop(0);
+  // X2 the Blind Eye: record the shutter crossing the lens, scrub to the covering frame, freeze it
+  w.startRecording(1, bot.vol(0, 4.5, -146.8, 4.6, 1.4, 0.6), 'shutter'); bot.step(360); w.stopRecording();
+  bot.walkTo(0, -156);
+  for (let i = 0; i < 400 && bot.signal('xEye2') < 0.5; i++) bot.step(1);
+  w.play(1, { mode: 'loop' }); w.pause(1);
+  const blind = [];
+  for (let h = 0; h < 360; h += 2) { w.setHead(1, h); bot.step(1); if (bot.signal('xEye2') < 0.5) blind.push(h); }
+  if (!blind.length) throw new Error('no frame of the shutter recording covers the lens');
+  // candidate windows; the real shutter also crosses the lens while we scrub, so test each by holding it a full cycle
+  const runs = []; for (const h of blind) { const r = runs[runs.length - 1]; if (r && h === r[r.length - 1] + 2) r.push(h); else runs.push([h]); }
+  let ok = false;
+  for (const r of runs) {
+    w.setHead(1, r[r.length >> 1]); bot.step(1);
+    let seen = 0; for (let i = 0; i < 360; i++) { bot.step(1); seen += bot.signal('xEye2'); }
+    if (seen === 0) { ok = true; break; }
+  }
+  if (!ok) throw new Error('no recorded frame keeps the Eye blind for a whole cycle');
+  for (let i = 0; i < 200 && bot.st('xD', 's') < 0.98; i++) bot.step(1);
+  bot.walkTo(0, -166); bot.walkTo(0, -170);
+  w.stop(1);
   // 4: three beats, then cross
-  const Dz = -38;
-  bot.walkTo(0, -132);
+  const Dz = -78;
+  bot.walkTo(0, -172);
   const v = bot.vol(0, -2, -109 + Dz, 4, 6, 11);
   let start = null;
   for (let k = 0; k < 3; k++) {

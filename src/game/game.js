@@ -534,6 +534,7 @@ export class Game {
         case 'canon': this.onCanon(e); break;
         case 'reconcile': this.renderer.burst(e.pos, { color: 0xe8c88a, size: 2.2, dur: 0.8, sparks: 10, speed: 2 }); break;
         case 'shatter': this.audio?.event('collapse'); this.renderer.burst(e.pos, { color: 0xbfe4ff, size: 3.5, dur: 1.0, sparks: 40, speed: 5 }); this.renderer.pulse(0.15); this.hud.toast('The glass was only ever a note. It could not hold the pitch.', 'disc', 'SHATTERED'); break;
+        case 'seen': this.teach('r-eye', 'THE EYE', 'An Eye sees any Recollector inside its gaze — you, or any echo of you. It does not see objects, and it cannot see through matter, remembered matter included. What it sees, it reports.', 'warn'); this.audio?.event('select'); break;
         case 'rollback': break;
         case 'record-empty': this.hud.toast('The volume was empty — nothing was recorded. Pin the frame around something (Q, aim, click).', 'warn'); break;
         case 'crate-lost': this.hud.toast('A crate fell out of reality and was recalled.', 'warn'); break;

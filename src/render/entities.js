@@ -224,6 +224,37 @@ const BUILD = {
     root.rotation.y = d.facing ?? 0;
     return { root, update(L, ctx, view) { lm.emissiveIntensity = L.st[0] ? 4 : 1; if (view.echoSlot === null) lm.emissive.setHex(d.hue ? HUE_COLORS[d.hue] : (L.st[0] ? 0x7fffd0 : 0xff6a5a)); } };
   },
+  // An Eye: a heavy iris housing. Amber and half-closed while it sees nobody; a red, wide-open pupil and a sight-line
+  // to whoever it is watching when it sees a Recollector.
+  watcher(L, ctx) {
+    const d = L.def, root = new THREE.Group();
+    const metal = ctx.lib.skin(ctx.theme, 'metal');
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62), metal);
+    shell.rotation.x = Math.PI / 2; shell.castShadow = true; root.add(shell);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 10, 32), ctx.lib.skin(ctx.theme, 'crate')); ring.position.z = 0.2; root.add(ring);
+    const irisM = emissiveMat(0xffb04d, 1.4), iris = new THREE.Mesh(new THREE.CircleGeometry(0.24, 32), irisM); iris.position.z = 0.22; root.add(iris);
+    const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.1, 24), new THREE.MeshBasicMaterial({ color: 0x050505 })); pupil.position.z = 0.225; root.add(pupil);
+    const lidM = new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5, metalness: 0.6, side: THREE.DoubleSide });
+    const lidT = new THREE.Mesh(new THREE.CircleGeometry(0.27, 24, 0, Math.PI), lidM), lidB = lidT.clone(); lidB.rotation.z = Math.PI;
+    lidT.position.z = lidB.position.z = 0.24; root.add(lidT, lidB);
+    const beamM = new THREE.LineBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const beamG = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 1)]);
+    const beam = new THREE.Line(beamG, beamM); beam.frustumCulled = false;
+    root.position.set(d.pos[0], d.pos[1], d.pos[2]); root.rotation.y = d.facing ?? 0;
+    const holder = new THREE.Group(); holder.add(root, beam);
+    const tmp = new THREE.Vector3(); let open = 0;
+    return { root: holder, update(L, ctx, view) {
+      const sees = L.st[0] > 0.5; open += ((sees ? 1 : 0.25) - open) * 0.2;
+      lidT.position.y = 0.05 + open * 0.24; lidB.position.y = -0.05 - open * 0.24; lidT.scale.y = lidB.scale.y = 1 - open * 0.7;
+      irisM.emissive.setHex(sees ? 0xff3b2f : 0xffb04d); irisM.emissiveIntensity = sees ? 4 + Math.sin(ctx.time * 18) : 1.2;
+      pupil.scale.setScalar(sees ? 0.6 : 1.3);
+      // the sight-line to the watched Recollector (present or echo)
+      const who = L.st[1], w = ctx.world;
+      const P = sees && w ? w.aliveList.find((x) => x.type.name === 'player' && x.layer === who) : null;
+      if (P && view.echoSlot === null) { beamG.setFromPoints([tmp.set(d.pos[0], d.pos[1], d.pos[2]).clone(), new THREE.Vector3(P.st[0], P.st[1] + 0.3, P.st[2])]); beamM.opacity = 0.35 + 0.15 * Math.sin(ctx.time * 20); }
+      else beamM.opacity = 0;
+    } };
+  },
   // The Recollector, as seen from outside: a tall lens-column with counter-rotating rings.
   player(L, ctx) {
     const root = new THREE.Group();

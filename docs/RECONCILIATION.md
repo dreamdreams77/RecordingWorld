@@ -79,3 +79,10 @@ conflicting surveys of one bridge.
 Fixed 60 Hz step, no wall-clock or random use in `src/sim/`. `World.hash()` hashes all entity states, playbacks
 and recording sizes. Tests assert identical hashes for identical inputs, and that
 `snapshot() → JSON → restore()` reproduces the exact future (this is also how saving works).
+
+
+## R12 — Selective playback
+A recording is a bundle of per-object histories. Any track can be left out of its echo (`World.muteTrack`, key **O**) or played alone (`soloTrack`, **Shift+O**). A muted track simply does not exist in that echo; everything else replays unchanged. An object's own recorded state is a separate history from the bodies that touched it: muting yourself on a plate leaves the plate's memory of being pressed. Muting is part of the playback state, so it survives saves, rewinds and section resets.
+
+## R13 — Witnesses
+An Eye (`watcher`) reports 1 while any Recollector — the present one or any echo of one — stands inside its zone with an unobstructed line of sight. Every solid in the reconciled geometry blocks sight, remembered matter included; other Recollectors do not. Like every mechanism, an Eye inside a recording volume is recorded: its echo remembers what it saw and contributes it (OR) to the present.

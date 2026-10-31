@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0 — the Recollector edits history
+* **Selective playback (O / Shift+O):** leave any object out of an echo, or replay only it. Freezing an echo (T while playing) is now labelled as such on the deck.
+* **The Unwitnessed Hall (VI):** two Eyes that see every Recollector, present or remembered. *The Witness* — the plate must be pressed and nobody seen: replay yourself, then remove yourself from your own memory. *The Blind Eye* — the shutter blinds the Eye for a heartbeat: record it, slow and scrub it to the covering frame, freeze it, and walk out behind a memory. Both verified by the bot and by negative tests.
+* **Stale-page recovery:** if a cached page points at script files a newer deploy replaced, the page reloads itself once; otherwise it says why it cannot start.
+
 ## 1.2.0 — nuance pass
 * **Couplings:** brittle glass panes (a sustained note turns sound into a permanent change of matter), a counting gate that jams on overshoot (the Counting House in II), colour-keyed optics chains (the Glass Vault and Mirror Lock in IV), and a plate-attribution rule so the game can say *which* history is holding something.
 * **Causality read-out:** aiming at a mechanism shows what it listens to, which history answers, and whether it is sealed, pinned or overruled (`World.explain`).

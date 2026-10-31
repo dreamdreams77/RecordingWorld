@@ -80,3 +80,43 @@ test('The Well: the descender is one-way — it will not rise on its own', () =>
   bot.walkTo(0, -99, { tol: 0.3 }); bot.step(600);
   assert.ok(bot.st('P', 's') > 0.99, 'still at the bottom');
 });
+
+// ---- VI: the Unwitnessed Hall
+test('VI Witness: standing on the plate, or replaying yourself on it, never opens the door — only leaving yourself out does', async () => {
+  const { World, IDLE } = await import('../src/sim/world.js');
+  const { Bot } = await import('../src/sim/bot.js');
+  const { LEVELS } = await import('../src/levels/index.js');
+  const w = new World(LEVELS.ch6), bot = new Bot(LEVELS.ch6, { world: w });
+  w.teleportPlayer([6, 0, -137], 0); bot.step(10);
+  assert.equal(w.R.get('xP'), 1, 'plate pressed'); assert.equal(w.R.get('xEye1'), 1, 'and you are seen');
+  assert.ok(w.byId.get('g1').st[0] < 0.05, 'door shut while you stand there');
+  w.startRecording(0, bot.vol(6, 1.5, -137, 2.5, 3, 2.5), 'me'); bot.step(60); w.stopRecording();
+  w.teleportPlayer([0, 0, -140], 0); w.play(0, { mode: 'loop' }); bot.step(120);
+  assert.equal(w.R.get('xEye1'), 1, 'the Eye sees your echo');
+  assert.ok(w.byId.get('g1').st[0] < 0.05, 'so the door stays shut');
+  const why = w.explain('g1');
+  assert.ok(why.inputs.find((i) => i.id === 'xEye1' && i.negated && !i.pass), 'explain() names the Eye as the reason');
+  w.muteTrack(0, 'player'); bot.step(150);
+  assert.equal(w.R.get('xEye1'), 0, 'nobody is seen');
+  assert.equal(w.R.get('xP'), 1, 'the plate still remembers being pressed');
+  assert.ok(w.byId.get('g1').st[0] > 0.98, 'the door opens');
+});
+
+test('VI Blind Eye: the shutter blinds the Eye only for a heartbeat — never long enough to pass the door', async () => {
+  const { World, IDLE } = await import('../src/sim/world.js');
+  const { Bot } = await import('../src/sim/bot.js');
+  const { LEVELS } = await import('../src/levels/index.js');
+  const w = new World(LEVELS.ch6), bot = new Bot(LEVELS.ch6, { world: w });
+  w.teleportPlayer([0, 0, -165], 0);
+  let maxDoor = 0, blindTicks = 0;
+  for (let i = 0; i < 1080; i++) { w.step(IDLE); maxDoor = Math.max(maxDoor, w.byId.get('xD').st[0]); if (!w.R.get('xEye2')) blindTicks++; }
+  assert.ok(blindTicks > 0, 'the shutter does blind the Eye now and then (the tell)');
+  assert.ok(blindTicks < 120, `but only briefly (${blindTicks} of 1080 ticks)`);
+  assert.ok(maxDoor < 0.9, `the door never gets far enough open to pass (max ${maxDoor.toFixed(2)})`);
+  // standing right under the Eye, outside its zone, is not a way out either: the door is at the other end
+  w.teleportPlayer([0, 0, -148], 0); bot.step(60);
+  assert.equal(w.R.get('xEye2'), 0, 'unwatched strip by the partition');
+  assert.ok(w.byId.get('xD').st[0] > 0.5, 'the door opens while you stand where the Eye cannot see…');
+  w.teleportPlayer([0, 0, -158], 0); bot.step(2);
+  assert.equal(w.R.get('xEye2'), 1, '…and slams the moment you step into view');
+});

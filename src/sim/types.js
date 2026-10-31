@@ -4,7 +4,7 @@
 // A state vector is the unit of recording: the recorder stores exactly these channels, and a replay
 // writes them back verbatim. Anything not in a state vector is derived from it.
 
-import { boxC, lerp, clamp } from './math.js';
+import { boxC, lerp, clamp, segHitsBox, containsPoint } from './math.js';
 import { heardAmp } from './fields.js';
 
 const idx = (names) => Object.fromEntries(names.map((n, i) => [n, i]));
@@ -133,6 +133,29 @@ reg('beam', { // light projector: emits an axis-aligned beam that mirrors can re
   colliders(d, st, push) { push({ b: boxC(d.pos[0], d.pos[1], d.pos[2], 0.8, 0.8, 0.8), kind: 'wall', snd: SND.crate, beam: false }); },
   step(L, w) { const p = w.inputOf(L.def); if (p !== null) L.st[0] = p ? 1 : 0; },
   out: (d, st) => st[0],
+});
+
+reg('watcher', { // an Eye: sees any Recollector (present or echo) inside its zone, unless matter blocks the line of sight
+  ch: ['sees', 'who'], keyCh: 0, size: () => [0.6, 0.6, 0.6], colliders() {},
+  out: (d, st) => st[0],
+  post(L, w) {
+    const e = L.def.pos, z = L.def.zone, was = L.st[0];
+    let who = -1;
+    for (const P of w.aliveList) {
+      if (P.type.name !== 'player') continue;
+      const x = P.st[0], y = P.st[1], zz = P.st[2];
+      if (x < z[0] || x > z[3] || y < z[1] || y > z[4] || zz < z[2] || zz > z[5]) continue;
+      let blocked = false;
+      for (const s of w.solids) {
+        if (!s.block || s.item === P || (s.item?.type?.name === 'player')) continue;
+        if (containsPoint(s.b, e[0], e[1], e[2]) || containsPoint(s.b, x, y, zz)) continue;
+        if (segHitsBox(e[0], e[1], e[2], x, y, zz, s.b)) { blocked = true; break; }
+      }
+      if (!blocked) { who = P.layer; break; }
+    }
+    L.st[0] = who >= 0 ? 1 : 0; L.st[1] = who;
+    if (L.st[0] && !was) w.emit('seen', { id: L.id, layer: who });
+  },
 });
 
 reg('sensor', { // photocell
