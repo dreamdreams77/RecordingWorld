@@ -85,7 +85,7 @@ export default {
     { id: 'x1', name: 'The Witness', trigger: [-9, -1, -146, 9, 8, -129], checkpoint: { pos: [0, 0, -130], yaw: 0 },
       intro: 'An Eye in the alcove sees every Recollector — the one standing here, and every one you have ever recorded. This door obeys only when the plate is pressed and nobody is seen.',
       objective: 'Open the door in the partition.',
-      hint: 'The plate needs a body. The Eye forbids one. A recording holds both — your body and the plate’s own memory of being pressed. You can replay one without the other (aim at an echo, press O).' },
+      hint: 'The plate needs a body. The Eye forbids one. A recording holds both — your body and the plate’s own memory of being pressed — and, if it was in your frame, the Eye’s memory of seeing you. Aim at an echo and press O to leave it out of the replay; leave out what you do not want remembered.' },
     { id: 'x2', name: 'The Blind Eye', trigger: [-9, -1, -168, 9, 8, -147], checkpoint: { pos: [0, 0, -148], yaw: 0 },
       intro: 'The second Eye watches the whole hall from above the door you came through. Twice a cycle its shutter crosses the lens, and for a heartbeat the far door forgets to be afraid.',
       objective: 'Leave the hall.',

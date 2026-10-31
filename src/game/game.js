@@ -559,6 +559,7 @@ export class Game {
     }
   }
   renderFrame(dt, alpha) {
+    if (this.testNoRender) return; // test hook: step the game without paying for a software-rendered frame
     const w = this.world, p = this.cur, q = this.prev;
     const cam = { x: lerp(q[0], p[0], alpha), y: lerp(q[1], p[1], alpha), z: lerp(q[2], p[2], alpha), yaw: this.yaw, pitch: this.pitch, speed: Math.hypot(p[3], p[5]), ground: p[9] > 0.5, vy: p[4], side: p[3] * Math.cos(this.yaw) - p[5] * Math.sin(this.yaw) };
     let frame = null, color = 0xffffff;

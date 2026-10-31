@@ -49,9 +49,9 @@ check('dragging the timeline with a finger moves the preview cursor', await unti
 const t0 = await p.evaluate(() => window.__game.instr.cursor.tick);
 await p.locator('.rl-b:has-text("▸")').first().tap(); await p.waitForTimeout(100);
 check('▸ steps exactly one tick', await until(() => window.__game.instr.cursor.tick === window.__game.instr.cursor.tick) && (await p.evaluate(() => window.__game.instr.cursor.tick)) === t0 + 1);
-await p.locator('.rl-b:has-text("FREEZE")').first().tap();
+await p.locator('.rl-b.ice').first().tap();
 check('FREEZE HERE holds the echo on that frame', await until(() => { const pb = window.__game.world.playbacks[0]; return pb.active && !pb.playing; }));
-await p.locator('.rl-b:has-text("RELEASE")').first().tap().catch(() => {});
+await p.locator('.rl-b.ice').first().tap().catch(() => {});
 await p.evaluate(() => { const g = window.__game; g.world.stop(0); g.instr.clear(); g.instr.reelPinned = true; g.instr.poke(); g.reel.update(); });
 const lane = await p.evaluate(() => { const g = window.__game; return g.reel.lanes.length; });
 check('lanes are shown for the recorded objects', lane >= 1, `${lane} lanes`);
