@@ -315,6 +315,7 @@ export class Game {
   frame(now) {
     requestAnimationFrame((t) => this.frame(t));
     this.touchUI?.update(); this.reel?.update();
+    if (this.reel?.open && !this._reelTaught) { this._reelTaught = true; this.teach('r-reel', 'THE REEL', 'One lane per recorded object. Marks: ▼ plate ◆ lever ▮ door ♪ note ◉ Eye ✦ light ⚙ machine — bigger matters more. Step , . · jump ; \''); }
     const dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
     this.fps += (1 / Math.max(dt, 1e-4) - this.fps) * 0.05;
     if (this.state === 'play') this.playFrame(dt);

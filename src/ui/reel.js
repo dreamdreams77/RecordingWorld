@@ -40,7 +40,7 @@ export class Reel {
     b('⏮', ';', () => I.jumpMarker(-1), 'sm'); this.stepBack = b('◂', ',', () => I.scrubBy(-1), 'sm'); this.stepFwd = b('▸', '.', () => I.scrubBy(1), 'sm'); b('⏭', "'", () => I.jumpMarker(1), 'sm');
     this.bPlay = b('▶ PLAY', 'T', () => (I.isPreview() ? I.playHere() : I.togglePlay()), 'main');
     this.bFreeze = b('❄ FREEZE', 'F', () => I.freezeHere(), 'main ice');
-    b('◀ REV', 'G', () => I.reverse()); b('½', '[', () => I.rate(-1), 'sm'); b('×2', ']', () => I.rate(1), 'sm'); b('↻', 'L', () => I.cycleMode(), 'sm');
+    this.bRev = b('◀ REV', 'G', () => I.reverse()); b('½', '[', () => I.rate(-1), 'sm'); b('×2', ']', () => I.rate(1), 'sm'); b('↻', 'L', () => I.cycleMode(), 'sm');
     // press-and-hold repeat for the single-tick buttons, so a hard puzzle can be walked frame by frame or run quickly
     for (const [btn, dir] of [[this.stepBack, -1], [this.stepFwd, 1]]) {
       let timer = null, rep = null;
@@ -106,8 +106,12 @@ export class Reel {
     if (sig !== this._sig) { this._sig = sig; this.q('.rl-chips').innerHTML = sig; }
     this.q('.rl-read').innerHTML = h === null ? `<b>—</b> / ${len - 1} · ${secs(len - 1)} s` : `t <b>${String(h).padStart(len > 999 ? 4 : 3, '0')}</b> / ${len - 1} · <b>${secs(h)}</b> s`;
     this.q('.rl-pill').style.background = hue;
-    this.bPlay.firstElementChild.textContent = I.isPreview() ? '▶ PLAY HERE' : pb?.active && pb.playing ? '❚❚ PAUSE' : '▶ PLAY';
-    this.bFreeze.firstElementChild.textContent = pb?.active && !pb.playing ? '❄ RELEASE' : I.isPreview() ? '❄ FREEZE HERE' : '❄ FREEZE';
+    const tight = window.innerHeight < 520 || window.innerWidth < 560; // short or narrow: icons only, one row
+    this.root.classList.toggle('tight', tight);
+    const pl = I.isPreview() ? 'PLAY HERE' : pb?.active && pb.playing ? 'PAUSE' : 'PLAY', gl = pb?.active && pb.playing && !I.isPreview() ? '❚❚' : '▶';
+    const fr = pb?.active && !pb.playing ? 'RELEASE' : I.isPreview() ? 'FREEZE HERE' : 'FREEZE';
+    this.bPlay.firstElementChild.textContent = tight ? gl : `${gl} ${pl}`; this.bFreeze.firstElementChild.textContent = tight ? '❄' : `❄ ${fr}`;
+    this.bPlay.title = pl; this.bFreeze.title = fr;
     this.layout(rec, pb);
     this.draw(rec, pb, h);
     this.describe(rec, pb, h);
@@ -117,9 +121,10 @@ export class Reel {
     const I = this.I; let t = '';
     if (h === null) t = `Drag the timeline, or press <kbd>,</kbd> <kbd>.</kbd> to step one tick at a time. <kbd>;</kbd> <kbd>'</kbd> jump between events.`;
     else {
-      const here = I.around(h, 3).map((m) => `<span style="color:${(KIND[m.kind] ?? KIND.state)[0]}">${(KIND[m.kind] ?? KIND.state)[1]} ${m.label}</span>`);
+      const hereAll = I.around(h, 3), more = hereAll.length > 3 ? ` <i style="color:var(--dim)">+${hereAll.length - 3} more</i>` : '';
+      const here = hereAll.slice(0, 3).map((m) => `<span style="color:${(KIND[m.kind] ?? KIND.state)[0]}">${(KIND[m.kind] ?? KIND.state)[1]} ${m.label}</span>`);
       const nx = I.next(h);
-      t = (here.length ? `<b>Now:</b> ${here.join(' · ')}` : '<b>Now:</b> nothing changes here')
+      t = (here.length ? `<b>Now:</b> ${here.join(' · ')}${more}` : '<b>Now:</b> nothing changes here')
         + (nx ? ` &nbsp;·&nbsp; <b>next:</b> ${nx.label} in ${((nx.t - h) / 60).toFixed(2)} s` : ' &nbsp;·&nbsp; <b>no further events</b>');
       if (I.isPreview()) t += ' &nbsp;·&nbsp; <kbd>T</kbd> play from here · <kbd>F</kbd> freeze here — the ghost shows where everything will be';
     }
@@ -133,7 +138,7 @@ export class Reel {
       const ms = rec.markers, count = (id) => ms.reduce((n, m) => n + (m.id === id ? 1 : 0), 0);
       this.allLanes = [...rec.tracks.values()].map((tr) => ({ id: tr.id, tr, n: count(tr.id), k: tr.keyframes })).sort((a, b) => b.n - a.n || b.k - a.k);
     }
-    this.lanes = this.allLanes.slice(0, 6);
+    this.lanes = this.allLanes.slice(0, window.innerHeight < 620 ? 3 : window.innerHeight < 800 ? 4 : 6); // fewer lanes on short screens: the view matters more than the table
     const W = Math.min(760, Math.max(280, window.innerWidth - 24)), H = RULER_H + EVT_H + Math.max(1, this.lanes.length) * LANE_H + 4;
     if (W !== this.W || H !== this.H || !this.sized) {
       this.W = W; this.H = H; this.sized = true; this.cache = null;
@@ -175,14 +180,21 @@ export class Reel {
       const label = ln.id.replace(/^[a-z]+_/, '');
       g.fillText((muted ? '⊘ ' : '') + (label.length > 9 ? label.slice(0, 8) + '…' : label), 4, y0 + LANE_H / 2);
     });
-    // event row + per-lane markers
-    const evY = RULER_H + EVT_H / 2;
+    // event row + per-lane markers. Importance is visible (size and brightness follow the marker's weight), and events closer
+    // than a few pixels are merged into one glyph with a count, so a busy recording never turns the row into noise.
+    const evY = RULER_H + EVT_H / 2, groups = [];
     for (const m of rec.markers) {
-      const [col, glyph] = KIND[m.kind] ?? KIND.state, X = x(m.t), li = this.lanes.findIndex((l) => l.id === m.id);
-      g.fillStyle = col; g.font = `${9 + Math.round(m.w * 3)}px ui-monospace, Menlo, Consolas, monospace`; g.textAlign = 'center';
-      g.globalAlpha = (pb?.muted.has(m.id)) ? 0.25 : 1;
-      g.fillText(glyph, X, evY);
-      if (li >= 0) { g.fillRect(X - 0.5, RULER_H + EVT_H + li * LANE_H + 2, 1.5, LANE_H - 4); }
+      const X = x(m.t), last = groups[groups.length - 1];
+      if (last && X - last.x < 6) { last.items.push(m); if (m.w > last.top.w) last.top = m; } else groups.push({ x: X, items: [m], top: m });
+    }
+    for (const gp of groups) {
+      const m = gp.top, [col, glyph] = KIND[m.kind] ?? KIND.state, muted = gp.items.every((k) => pb?.muted.has(k.id));
+      const primary = m.w >= 0.8;
+      g.globalAlpha = muted ? 0.22 : primary ? 1 : m.w >= 0.5 ? 0.8 : 0.5;
+      g.fillStyle = col; g.font = `${primary ? 13 : m.w >= 0.5 ? 11 : 9}px ui-monospace, Menlo, Consolas, monospace`; g.textAlign = 'center';
+      g.fillText(glyph, gp.x, evY);
+      if (gp.items.length > 1) { g.font = '8px ui-monospace, Menlo, Consolas, monospace'; g.fillStyle = '#fff'; g.globalAlpha = muted ? 0.22 : 0.9; g.fillText(String(gp.items.length), gp.x + 6, evY - 4); }
+      for (const k of gp.items) { const li = this.lanes.findIndex((l) => l.id === k.id); if (li >= 0) { g.globalAlpha = (pb?.muted.has(k.id) ? 0.2 : k.w >= 0.5 ? 0.95 : 0.45); g.fillStyle = (KIND[k.kind] ?? KIND.state)[0]; g.fillRect(x(k.t) - 0.5, RULER_H + EVT_H + li * LANE_H + 2, k.w >= 0.8 ? 2 : 1, LANE_H - 4); } }
       g.globalAlpha = 1; g.textAlign = 'left';
     }
     g.font = '10px ui-monospace, Menlo, Consolas, monospace';
@@ -209,8 +221,8 @@ export class Reel {
     if (this.hover && this.hover.x >= PAD_L) {
       const t = this.tickAt(this.hover.x), X = x(t);
       g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(X, RULER_H); g.lineTo(X, H); g.stroke();
-      const near = rec.markers.filter((m) => Math.abs(x(m.t) - X) < 7)[0];
-      const txt = near ? `${near.label} · t ${near.t}` : `t ${t} · ${secs(t)} s`;
+      const nearAll = rec.markers.filter((m) => Math.abs(x(m.t) - X) < 7), near = nearAll.sort((a, b) => b.w - a.w)[0];
+      const txt = near ? `${near.label} · t ${near.t}${nearAll.length > 1 ? ` (+${nearAll.length - 1} more)` : ''}` : `t ${t} · ${secs(t)} s`;
       g.font = '10px ui-monospace, Menlo, Consolas, monospace'; const tw = g.measureText(txt).width + 10, tx = Math.min(W - tw - 2, Math.max(2, X - tw / 2));
       g.fillStyle = 'rgba(0,0,0,.82)'; g.fillRect(tx, H - 15, tw, 13); g.fillStyle = near ? (KIND[near.kind] ?? KIND.state)[0] : '#ddd'; g.textBaseline = 'middle'; g.fillText(txt, tx + 5, H - 8.5);
     }

@@ -300,60 +300,118 @@ export class TrailFX {
 }
 
 /**
- * The preview ghost: where every recorded object will be at the moment under the reel's cursor, drawn as outlines in
- * the actual 3D scene. It reads the recording's tracks into scratch buffers (Recording.sampleAll) — no world copy, no
- * entity views, no allocation per frame. Objects whose state differs from the present (a door that will be open, a plate
- * that will be down) glow brighter, because those are the ones that will change the world when the echo plays.
+ * The preview ghost: where every recorded object will be at the moment under the reel's cursor, drawn in the actual 3D
+ * scene. It reads the recording's tracks into scratch buffers (Recording.sampleAll) — no world copy, no entity views, no
+ * allocation per frame. Objects whose state differs from the present (a door that will be open, a plate that will be
+ * down) glow and carry a label, because those are the ones that will change the world when the echo plays.
+ * Legibility rules: edges have a fixed world-space thickness with a dark under-stroke so they read on pale and dark
+ * walls alike; fills are faint and depth-tested so the present is never hidden; only the player ghost and its feet ring
+ * ignore depth, so you can always find where you will be standing.
  */
+const GHOST_VERT = `varying vec3 vP, vS, vN, vV, vW;
+  void main(){ vP = position; vS = vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
+    vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz);
+    gl_Position = projectionMatrix * viewMatrix * w; }`;
+const BOX_FRAG = `uniform vec3 uColor; uniform float uHot, uTime; varying vec3 vP, vS, vN, vV, vW;
+  void main(){
+    vec3 d = (0.5 - abs(vP)) * vS;                                   // world-space distance to each face plane
+    float ed = min(min(max(d.x, d.y), max(d.y, d.z)), max(d.x, d.z)); // world-space distance to the nearest box edge
+    float w = 0.045;
+    float rim = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0);
+    vec3 bright = uColor * (1.15 + 0.7 * uHot) + vec3(0.12) * uHot;
+    if (ed < w * 0.45) { gl_FragColor = vec4(0.05, 0.04, 0.035, 0.85); return; }          // dark under-stroke: reads on pale walls
+    if (ed < w)        { gl_FragColor = vec4(bright, 0.97); return; }                       // bright edge
+    float scan = 0.85 + 0.15 * step(0.5, fract(vW.y * 9.0 - uTime * 0.25 * (1.0 - uHot))); // faint film-gate banding
+    gl_FragColor = vec4(uColor * 1.1, (0.09 + 0.16 * uHot + 0.08 * rim) * scan);
+  }`;
+const BODY_FRAG = `uniform vec3 uColor; uniform float uHot, uTime; varying vec3 vP, vS, vN, vV, vW;
+  void main(){
+    float rim = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 1.6);
+    float band = 0.8 + 0.2 * step(0.5, fract(vW.y * 14.0 - uTime * 0.3));
+    gl_FragColor = vec4(uColor * (1.2 + 0.8 * rim) + vec3(0.1) * uHot, (0.16 + 0.72 * rim) * band);
+  }`;
+const XRAY_FRAG = `uniform vec3 uColor; uniform float uHot, uTime; varying vec3 vP, vS, vN, vV, vW;
+  void main(){ float rim = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 1.4); gl_FragColor = vec4(uColor * 1.3, 0.10 + 0.34 * rim); }`;
+const ghostMat = (frag, extra = {}) => new THREE.ShaderMaterial({ vertexShader: GHOST_VERT, fragmentShader: frag, transparent: true, depthWrite: false, fog: false,
+  uniforms: { uColor: { value: new THREE.Color(1, 1, 1) }, uHot: { value: 0 }, uTime: { value: 0 } }, ...extra });
+const labelCache = new Map();
+function labelTexture(text, hot) {
+  const key = text + (hot ? '*' : ''); let t = labelCache.get(key); if (t) return t;
+  const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 256; c.height = 52;
+  g.font = '600 24px ui-monospace, Menlo, Consolas, monospace'; const w = Math.min(248, g.measureText(text).width + 22);
+  g.fillStyle = 'rgba(10,9,8,.86)'; g.fillRect(128 - w / 2, 6, w, 40);
+  g.strokeStyle = hot ? '#fff1c0' : '#c8b898'; g.lineWidth = 2; g.strokeRect(128 - w / 2, 6, w, 40);
+  g.fillStyle = hot ? '#fff1c0' : '#e8dcc0'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 27);
+  t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter; labelCache.set(key, t); return t;
+}
 export class GhostFX {
   constructor(scene) {
     this.group = new THREE.Group(); this.group.visible = false; scene.add(this.group);
-    this.edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
-    this.fillGeo = new THREE.BoxGeometry(1, 1, 1);
-    this.capEdge = new THREE.EdgesGeometry(new THREE.CapsuleGeometry(0.3, 1.2, 2, 10));
-    this.hue = new THREE.Color(0xffa94d);
-    this.edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
-    this.hotMat = new THREE.LineBasicMaterial({ color: 0xfff1c0, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
-    this.fillMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
-    this.hotFill = new THREE.MeshBasicMaterial({ color: 0xfff1c0, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    this.box = new THREE.BoxGeometry(1, 1, 1);
+    this.boxMat = ghostMat(BOX_FRAG); this.hotMat = ghostMat(BOX_FRAG); this.hotMat.uniforms.uHot.value = 1;
     this.pool = [];
-    for (let i = 0; i < 72; i++) {
-      const g = new THREE.Group(), edge = new THREE.LineSegments(this.edgeGeo, this.edgeMat), fill = new THREE.Mesh(this.fillGeo, this.fillMat);
-      edge.renderOrder = 7; fill.renderOrder = 6; g.add(fill, edge); g.visible = false; g.userData = { edge, fill }; this.group.add(g); this.pool.push(g);
-    }
-    this.cap = new THREE.LineSegments(this.capEdge, this.edgeMat); this.cap.renderOrder = 7; this.cap.visible = false; this.group.add(this.cap);
-    this.capHot = new THREE.LineSegments(this.capEdge, this.hotMat); this.capHot.renderOrder = 8; this.capHot.visible = false; this.group.add(this.capHot);
-    this.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
-    this.beam.visible = false; this.group.add(this.beam);
+    for (let i = 0; i < 72; i++) { const m = new THREE.Mesh(this.box, this.boxMat); m.visible = false; m.renderOrder = 7; this.group.add(m); this.pool.push(m); }
+    this.bodyMat = ghostMat(BODY_FRAG); this.bodyHot = ghostMat(BODY_FRAG); this.bodyHot.uniforms.uHot.value = 1;
+    this.outlineMat = new THREE.MeshBasicMaterial({ color: 0x0d0b09, transparent: true, opacity: 0.5, side: THREE.BackSide, depthWrite: false, fog: false });
+    const cap = new THREE.CapsuleGeometry(0.3, 1.2, 4, 16);
+    this.body = new THREE.Mesh(cap, this.bodyMat); this.body.renderOrder = 8; this.body.visible = false; this.group.add(this.body);
+    this.outline = new THREE.Mesh(cap, this.outlineMat); this.outline.scale.setScalar(1.045); this.outline.renderOrder = 7; this.outline.visible = false; this.group.add(this.outline);
+    // x-ray: where you will be standing stays findable behind walls, as a faint silhouette
+    this.xray = new THREE.Mesh(cap, ghostMat(XRAY_FRAG, { depthFunc: THREE.GreaterDepth, depthTest: true })); this.xray.renderOrder = 6; this.xray.visible = false; this.group.add(this.xray);
+    this.nose = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 10), this.bodyMat); this.nose.rotation.x = -Math.PI / 2; this.nose.visible = false; this.nose.renderOrder = 8; this.group.add(this.nose);
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false, depthWrite: false, fog: false }));
+    this.ring.rotation.x = -Math.PI / 2; this.ring.renderOrder = 9; this.ring.visible = false; this.group.add(this.ring);
+    this.ringDark = new THREE.Mesh(new THREE.RingGeometry(0.52, 0.6, 40), new THREE.MeshBasicMaterial({ color: 0x0d0b09, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthTest: false, depthWrite: false, fog: false }));
+    this.ringDark.rotation.x = -Math.PI / 2; this.ringDark.renderOrder = 8; this.ringDark.visible = false; this.group.add(this.ringDark);
+    this.labels = []; for (let i = 0; i < 8; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false, fog: false })); sp.scale.set(2.2, 0.45, 1); sp.renderOrder = 10; sp.visible = false; this.group.add(sp); this.labels.push(sp); }
+    this.hue = new THREE.Color(0xffa94d);
   }
-  /** @param ghost {entries, slot, world, hue, near: Set<id>} or null */
+  /** @param ghost {entries, slot, world, near: Set<id>} or null */
   update(ghost, clock) {
     if (!ghost) { this.group.visible = false; return; }
     this.group.visible = true;
-    const w = ghost.world, pulse = 0.75 + 0.25 * Math.sin(clock * 6);
+    const w = ghost.world;
     this.hue.set(SLOT_HUES[ghost.slot % SLOT_HUES.length]);
-    this.edgeMat.color.copy(this.hue); this.fillMat.color.copy(this.hue);
-    this.hotMat.opacity = 0.6 + 0.35 * pulse; this.hotFill.opacity = 0.12 + 0.12 * pulse;
-    let n = 0, cap = false;
+    for (const m of [this.boxMat, this.hotMat, this.bodyMat, this.bodyHot, this.xray.material]) { m.uniforms.uColor.value.copy(this.hue); m.uniforms.uTime.value = clock; }
+    this.ring.material.color.copy(this.hue);
+    let n = 0, nl = 0, player = false;
     for (const e of ghost.entries) {
       if (!e.alive) continue;
       const d = e.def; if (d.pos && d.pos[1] < -40) continue; // logic nodes have no place in the world
-      const a = e.type.anchor(d, e.st);
-      const hot = ghost.near.has(e.id) || differs(w, e);
-      if (e.type.name === 'player') {
-        const m = hot ? this.capHot : this.cap; m.visible = true; (hot ? this.cap : this.capHot).visible = false;
-        m.position.set(a[0], a[1], a[2]); m.rotation.y = e.st[6]; cap = true;
-        this.beam.visible = true; this.beam.position.set(a[0], a[1] / 2, a[2]); this.beam.scale.set(1, Math.max(0.01, a[1]), 1);
+      const a = e.type.anchor(d, e.st), name = e.type.name;
+      const k = e.type.keyCh, differing = differs(w, e), hot = differing || ghost.near.has(e.id);
+      if (name === 'player') {
+        player = true; const m = hot ? this.bodyHot : this.bodyMat;
+        this.body.material = m; this.nose.material = m;
+        this.body.visible = this.outline.visible = this.nose.visible = this.ring.visible = this.ringDark.visible = true;
+        this.body.position.set(a[0], a[1], a[2]); this.outline.position.copy(this.body.position); this.xray.visible = true; this.xray.position.copy(this.body.position);
+        this.nose.position.set(a[0] - Math.sin(e.st[6]) * 0.42, a[1] + 0.35, a[2] - Math.cos(e.st[6]) * 0.42); this.nose.rotation.set(-Math.PI / 2, 0, 0); this.nose.rotation.order = 'YXZ'; this.nose.rotation.y = e.st[6];
+        this.ring.position.set(a[0], a[1] - 0.88, a[2]); this.ringDark.position.copy(this.ring.position);
+        if (nl < this.labels.length) this.label(nl++, a[0], a[1] + 1.35, a[2], 'YOU, THEN', true);
         continue;
       }
       if (n >= this.pool.length) break;
       const s = e.type.size(d); if (!s) continue;
-      const g = this.pool[n++], u = g.userData;
-      g.visible = true; g.position.set(a[0], a[1], a[2]); g.scale.set(Math.max(0.05, s[0]), Math.max(0.05, s[1]), Math.max(0.05, s[2]));
-      u.edge.material = hot ? this.hotMat : this.edgeMat; u.fill.material = hot ? this.hotFill : this.fillMat;
+      const m = this.pool[n++]; m.visible = true; m.position.set(a[0], a[1], a[2]); m.scale.set(Math.max(0.06, s[0]), Math.max(0.06, s[1]), Math.max(0.06, s[2]));
+      m.material = hot ? this.hotMat : this.boxMat;
+      if (differing && nl < this.labels.length) this.label(nl++, a[0], a[1] + Math.max(0.5, s[1] / 2 + 0.4), a[2], `${shortName(name)} ${stateWord(name, e.st[k] > 0.5)}`, true);
     }
     for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;
-    if (!cap) { this.cap.visible = this.capHot.visible = this.beam.visible = false; }
+    for (let i = nl; i < this.labels.length; i++) this.labels[i].visible = false;
+    if (!player) this.body.visible = this.outline.visible = this.nose.visible = this.ring.visible = this.ringDark.visible = this.xray.visible = false;
+  }
+  label(i, x, y, z, text, hot) {
+    const sp = this.labels[i]; sp.visible = true; sp.position.set(x, y, z);
+    const t = labelTexture(text, hot); if (sp.material.map !== t) { sp.material.map = t; sp.material.needsUpdate = true; }
+  }
+}
+const SHORT = { slider: 'DOOR', descender: 'LIFT', plate: 'PLATE', lever: 'LEVER', watcher: 'EYE', resonator: 'RESONATOR', crate: 'CRATE', sensor: 'SENSOR', flywheel: 'FLYWHEEL', gate: 'GATE', crumble: 'FLOOR', pane: 'GLASS' };
+const shortName = (n) => SHORT[n] ?? n.toUpperCase();
+function stateWord(name, on) {
+  switch (name) {
+    case 'plate': return on ? 'DOWN' : 'UP'; case 'slider': case 'descender': return on ? 'OPEN' : 'SHUT'; case 'watcher': return on ? 'SEES' : 'BLIND';
+    case 'lever': return on ? 'ON' : 'OFF'; case 'resonator': return on ? 'RINGING' : 'SILENT'; case 'flywheel': return on ? 'SPINNING' : 'STILL'; case 'sensor': return on ? 'LIT' : 'DARK';
+    default: return on ? 'ON' : 'OFF';
   }
 }
 function differs(w, e) { // does this object's recorded state differ from the present one? (the ones that will change the world)

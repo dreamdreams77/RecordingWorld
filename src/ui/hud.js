@@ -41,7 +41,7 @@ export class HUD {
   }
 
   /** Compact deck while exploring: just the chips; the reel above takes over when the instrument is being used. */
-  setCompact(on) { if (on !== this._compact) { this._compact = on; this.deck.classList.toggle('compact', on); } }
+  setCompact(on) { on = true; if (on !== this._compact) { this._compact = on; this.deck.classList.toggle('compact', on); } } // the reel is the timeline now; the deck is only a row of chips
 
   buildDeck(n) {
     this.deck.innerHTML = ''; this.slots = [];

@@ -174,8 +174,8 @@ body.reduced .titlecard .tc-rule { animation: none; }
 @keyframes washin { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---- the reel: the instrument's timeline ---- */
-.reel { position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%); z-index: 36; width: min(780px, calc(100vw - 16px)); padding: 7px 10px 8px; background: linear-gradient(180deg, rgba(14,15,19,.82), rgba(8,9,12,.9)); border: 1px solid rgba(232,200,138,.28); border-top-color: var(--hue, #ffa94d); box-shadow: 0 -10px 40px -18px var(--hue, #ffa94d), 0 6px 30px rgba(0,0,0,.5); font-family: var(--mono); font-size: 11px; color: var(--text); transition: opacity .28s ease, transform .28s ease; backdrop-filter: blur(4px); touch-action: none; user-select: none; -webkit-user-select: none; }
-.reel.closed { opacity: 0; transform: translateX(-50%) translateY(14px); pointer-events: none; }
+.reel { position: fixed; left: 50%; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 36; width: min(780px, calc(100vw - 16px)); padding: 7px 10px 8px; background: linear-gradient(180deg, rgba(14,15,19,.82), rgba(8,9,12,.9)); border: 1px solid rgba(232,200,138,.28); border-top-color: var(--hue, #ffa94d); box-shadow: 0 -10px 40px -18px var(--hue, #ffa94d), 0 6px 30px rgba(0,0,0,.5); font-family: var(--mono); font-size: 11px; color: var(--text); transition: opacity .28s ease, transform .28s ease; backdrop-filter: blur(4px); touch-action: none; user-select: none; -webkit-user-select: none; }
+.reel.closed { opacity: 0; transform: translateX(-50%) translateY(-14px); pointer-events: none; }
 .reel.recording { border-top-color: #ff6a4a; box-shadow: 0 -10px 40px -18px #ff6a4a, 0 6px 30px rgba(0,0,0,.5); }
 .rl-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; }
 .rl-pill { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #111; font-weight: 700; font-size: 11px; flex: none; }
@@ -202,7 +202,27 @@ body.reduced .titlecard .tc-rule { animation: none; }
 body.touch .reel { bottom: auto; top: calc(8px + env(safe-area-inset-top)); left: auto; right: calc(8px + env(safe-area-inset-right)); transform: none; width: min(600px, calc(100vw - 372px)); }
 body.touch .reel.closed { transform: translateY(-10px); }
 body.touch .reel .rl-say { display: none; }
-@media (orientation: portrait) { body.touch .reel { top: calc(132px + env(safe-area-inset-top)); right: auto; left: 50%; transform: translateX(-50%); width: calc(100vw - 16px); } body.touch .reel.closed { transform: translateX(-50%) translateY(-10px); } }
+@media (orientation: portrait) { body.touch .reel { top: calc(8px + env(safe-area-inset-top)); right: auto; left: 50%; transform: translateX(-50%); width: calc(100vw - 16px); } body.touch .reel.closed { transform: translateX(-50%) translateY(-10px); } }
 @media (max-width: 700px) { .rl-b.main { min-width: 78px; } .rl-b { padding: 0 7px; } }
-body.reel-open #feed { bottom: 336px; }
-body.touch.reel-open #feed { bottom: 74px; }
+
+/* desktop: the reel is a slim strip over the deck — the view (and the ghost in it) must stay visible; the button bar is for touch */
+body:not(.touch) .rl-bar { display: none; }
+body:not(.touch) .rl-say { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* the reel lives at the top of the view: the floor — where ghosts and echoes stand — stays clear. The objective and tick readout step aside while it is open. */
+body.reel-open #folio, body.reel-open #ticker { opacity: 0; transition: opacity .25s; }
+#folio, #ticker { transition: opacity .35s; }
+body.reel-open #feed { bottom: 14px; }
+#deck.compact .slot .st .time, #deck.compact .slot .coh { display: none; } #deck.compact .slot .st { gap: 6px; }
+
+/* small screens adapt: icon-only reel controls in one row, the feed and key legend step out of the way */
+.reel.tight .rl-b { min-width: 38px; height: 34px; padding: 0 6px; } .reel.tight .rl-b.main { min-width: 46px; } .reel.tight .rl-b small { display: none; }
+.reel.tight .rl-bar { flex-wrap: nowrap; gap: 4px; margin-top: 4px; } .reel.tight .rl-hd { margin-bottom: 2px; } .reel.tight .rl-say { display: none; }
+.reel.tight .rl-b:nth-child(n+8) { display: none; }          /* ½ ×2 ↻ stay reachable from the drawer and keys */
+@media (max-width: 900px) { #legend { display: none; } #feed { width: min(300px, 34vw); bottom: 84px !important; } }
+@media (max-height: 520px) { #legend { display: none; } }
+body.touch #feed, body.touch.reel-open #feed { bottom: 66px !important; }
+body.touch .reel { width: min(560px, calc(100vw - 372px)); }
+@media (orientation: portrait) { body.touch #feed, body.touch.reel-open #feed { bottom: 66px !important; width: min(300px, 60vw); } body.touch .reel { width: calc(100vw - 16px); } }
+body.touch.reel-open #deck { display: none; }           /* on touch the reel names the slot; the chips would only crowd the view */
+body.touch #feed { width: min(260px, 38vw); }
