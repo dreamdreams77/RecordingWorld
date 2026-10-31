@@ -57,25 +57,25 @@ await S(() => window.__key('KeyG')); check('G reverses the echo (rate negative)'
 await S(() => window.__key('BracketLeft')); check('[ slows it (half speed)', await S(() => Math.abs(window.__game.world.playbacks[0].rate) === 0.5));
 await S(() => window.__key('KeyL')); await S(() => window.__key('KeyL')); check('L cycles the mode', await S(() => ['once', 'loop', 'pingpong', 'hold'].includes(window.__game.world.playbacks[0].mode)));
 // jog wheel with the mouse: Ctrl + sideways movement scrubs and the view stays still
-await S(() => { const g = window.__game; g.world.stop(0); g.instr.clear(); g.world.playbacks[0].rate = 1; g.input.down.add('ControlLeft'); g.instr.cursor = { slot: 0, tick: 30 }; g.input.dx = 20; g.yaw = 0.5; g.playFrame(1 / 60); g.input.endFrame(); });
+await S(() => { const g = window.__game; g.world.stop(0); g.instr.clear(); g.world.playbacks[0].rate = 1; g.input.down.add('ControlLeft'); g.instr.cursor = { slot: 0, tick: 30, rec: g.world.recordings[0] }; g.input.dx = 20; g.yaw = 0.5; g.playFrame(1 / 60); g.input.endFrame(); });
 const j = await S(() => ({ tick: window.__game.instr.cursor.tick, yaw: window.__game.yaw })); check('Ctrl + mouse movement drags through history without turning the view', j.tick > 30 && Math.abs(j.yaw - 0.5) < 1e-9, JSON.stringify(j));
 await S(() => window.__game.input.down.delete('ControlLeft'));
 // omit / solo through the lane API
-await S(() => { const g = window.__game; g.instr.cursor = { slot: 0, tick: 40 }; });
+await S(() => { const g = window.__game; g.instr.cursor = { slot: 0, tick: 40, rec: g.world.recordings[0] }; });
 check('omitting a lane removes it from the ghost', await S(() => { const g = window.__game; g.instr.lane('player'); return g.instr.ghost().entries.find((e) => e.id === 'player').alive === false; }));
 await S(() => window.__game.instr.lane('player')); // bring the player back first
 check('solo isolates one object', await S(() => { const g = window.__game; g.instr.lane('plateA', true); const pb = g.world.playbacks[0]; return pb.muted.size === pb.rec.tracks.size - 1 && !pb.muted.has('plateA'); }));
 await S(() => { const g = window.__game; g.instr.lane('plateA', true); }); check('solo again restores everything', await S(() => window.__game.world.playbacks[0].muted.size === 0));
 // edge cases
 check('stepping with no recording is harmless', await S(() => { const g = window.__game; g.selected = 3; g.instr.scrubBy(1); g.instr.freezeHere(); g.instr.jumpMarker(1); g.instr.playHere(); g.selected = 0; return true; }));
-check('starting a recording closes the preview and shows the recording reel', await S(() => { const g = window.__game; g.instr.cursor = { slot: 0, tick: 10 }; g.world.stop(0); g.selected = 1; g.pinned = { x0: -3, x1: 3, y0: -1, y1: 3, z0: -3, z1: 3 }; window.__key('KeyR'); g.reel.update(); const ok = !!g.world.recorder && g.instr.cursor === null && g.reel.open && document.querySelector('.reel').classList.contains('recording'); window.__key('KeyR'); return ok; }));
-check('an erased slot clears the cursor', await S(() => { const g = window.__game; g.selected = 0; g.instr.cursor = { slot: 0, tick: 5 }; window.__key('Backspace'); return g.instr.cursor === null && !g.world.recordings[0]; }));
+check('starting a recording closes the preview and shows the recording reel', await S(() => { const g = window.__game; g.instr.cursor = { slot: 0, tick: 10, rec: g.world.recordings[0] }; g.world.stop(0); g.selected = 1; g.pinned = { x0: -3, x1: 3, y0: -1, y1: 3, z0: -3, z1: 3 }; window.__key('KeyR'); g.reel.update(); const ok = !!g.world.recorder && g.instr.cursor === null && g.reel.open && document.querySelector('.reel').classList.contains('recording'); window.__key('KeyR'); return ok; }));
+check('an erased slot clears the cursor', await S(() => { const g = window.__game; g.selected = 0; g.instr.cursor = { slot: 0, tick: 5, rec: g.world.recordings[0] }; window.__key('Backspace'); return g.instr.cursor === null && !g.world.recordings[0]; }));
 check('rolling back restores it (Shift+Backspace)', await S(() => { window.__key('Backspace', true); return !!window.__game.world.recordings[0]; }));
 // save / load while a cursor exists: the cursor is transient, the recording and mutes are not
-const snapOk = await S(() => { const g = window.__game; g.instr.cursor = { slot: 0, tick: 12 }; g.world.muteTrack(0, 'player'); const snap = g.world.snapshot(), h = g.world.hash(); g.world.restore(JSON.parse(JSON.stringify(snap))); return g.world.hash() === h && g.world.playbacks[0].muted.has('player'); });
+const snapOk = await S(() => { const g = window.__game; g.instr.cursor = { slot: 0, tick: 12, rec: g.world.recordings[0] }; g.world.muteTrack(0, 'player'); const snap = g.world.snapshot(), h = g.world.hash(); g.world.restore(JSON.parse(JSON.stringify(snap))); return g.world.hash() === h && g.world.playbacks[0].muted.has('player'); });
 check('save/load with a preview open is exact', snapOk);
 // one real rendered frame with everything on: no shader or draw errors
-await S(() => { const g = window.__game; g.world.muteTrack(0, 'player', false); g.instr.cursor = { slot: 0, tick: 40 }; g.instr.poke(); g.testNoRender = false; });
+await S(() => { const g = window.__game; g.world.muteTrack(0, 'player', false); g.instr.cursor = { slot: 0, tick: 40, rec: g.world.recordings[0] }; g.instr.poke(); g.testNoRender = false; });
 await p.waitForFunction(() => window.__game.renderer.ghost.group.visible, null, { timeout: 120000 }).then(() => check('the ghost is part of a real rendered frame', true), () => check('the ghost is part of a real rendered frame', false));
 await p.screenshot({ path: new URL('../docs/screenshots/14-reel-preview.png', import.meta.url).pathname, timeout: 120000 }).catch(() => {});
 check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
