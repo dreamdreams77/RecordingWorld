@@ -190,6 +190,12 @@ export class Recorder {
       if (!tr) { if (!inside) continue; tr = new Track(L.id, trackTemplate(L)); this.rec.tracks.set(L.id, tr); }
       if (tr.push(this.tau, inside, L.st)) changed++;
     }
+    // an object that has left the world (removed, destroyed) leaves history at this tick; without this its last state would be held forever
+    for (const [id, tr] of this.rec.tracks) {
+      if (world.byId.has(id)) continue;
+      const o = tr.vals.length - tr.stride;
+      if (o >= 0 && tr.vals[o] === 1 && tr.push(this.tau, false, tr.vals.slice(o + 1))) changed++;
+    }
     this.energy.push(changed);
     this.tau++;
   }

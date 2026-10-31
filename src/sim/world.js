@@ -19,6 +19,7 @@ import { Recording, Recorder, Playback, PLAYBACK_MODES } from './recording.js';
 import { traceBeams, computeSound } from './fields.js';
 
 export const GRAVITY = 24, WALK_SPEED = 4.9, JUMP_SPEED = 7.7, MAX_FALL = 30;
+const MAX_CLAMP = 3; // metres: the furthest a single collision clamp may move a body
 export const IDLE = Object.freeze({ mx: 0, mz: 0, jump: false, interact: false, tone: 0 });
 
 const bodyHalf = (L) => { const s = L.type.size(L.def); return [s[0] / 2, s[1] / 2, s[2] / 2]; };
@@ -348,6 +349,9 @@ export class World {
     const h = bodyHalf(L), dl = [dx, dy, dz];
     for (const axis of [1, 0, 2]) {
       const d = dl[axis]; if (!d) continue;
+      // Echo matter the body ALREADY overlaps (an echo that has just appeared on top of it) cannot be moved against: clamping to
+      // its far face would throw the body through whatever is beyond. Such overlaps are resolved by depenetrate(), which
+      // pushes along the shortest axis, instead.
       st[axis] += d;
       for (const s of this.solids) {
         if (!s.block || s.item === L) continue;
@@ -372,7 +376,13 @@ export class World {
           }
         }
         const lo = ['x0', 'y0', 'z0'][axis], hi = ['x1', 'y1', 'z1'][axis];
-        if (d > 0) st[axis] = s.b[lo] - h[axis] - 1e-4; else st[axis] = s.b[hi] + h[axis] + 1e-4;
+        const to = d > 0 ? s.b[lo] - h[axis] - 1e-4 : s.b[hi] + h[axis] + 1e-4;
+        // A body that is ALREADY inside a solid (an echo that appeared on top of it, a floor it was shoved into) is clamped to the
+        // far face; for a body-sized echo that is a small hop, but against a large solid it would carry the body across the
+        // whole thing (30 m in the sandbox). Nothing may be moved further than its own height in one clamp: refuse the move
+        // and let depenetrate() resolve the overlap along its shortest axis.
+        if (Math.abs(to - st[axis]) > MAX_CLAMP) { st[axis] -= d; st[3 + axis] = 0; res.blocked = true; continue; }
+        st[axis] = to;
         st[3 + axis] = 0;
         res.blocked = true;
         if (axis === 1 && d < 0) res.landed = true;
@@ -535,6 +545,7 @@ export class World {
     if (!this.caps.modes.includes(pb.mode)) pb.mode = 'once';
     if (pb.active) { pb.playing = true; if (rate) pb.rate = rate; if (pb.mode === 'hold' && pb.head >= pb.rec.length - 1 && pb.rate > 0) pb.head = 0; }
     else pb.start(rate ?? pb.rate ?? 1);
+    this.refreshDerived(); // the echo is in the world at once, not one tick later
     this.emit('play', { slot });
     return true;
   }
@@ -542,6 +553,7 @@ export class World {
   playAll(opts = {}) {
     let n = 0;
     this.recordings.forEach((r, i) => { if (r && this.play(i, opts)) { const pb = this.playbacks[i]; if (pb.active) { pb.head = pb.rate < 0 ? r.length - 1 : 0; pb.playing = true; n++; } } });
+    if (n) this.refreshDerived();
     return n;
   }
   /** Selective playback: leave one recorded object out of an echo (or put it back). Returns the new muted state. */
@@ -583,6 +595,7 @@ export class World {
     if (!pb.active) { pb.active = true; pb.playing = false; pb.coherence = 1; pb.age = 0; pb.head = 0; }
     pb.head = clamp(pb.head + ticks, 0, pb.rec.length - 1);
     pb.playing = false;
+    this.refreshDerived();
   }
   /** Start (or move) an echo at an exact tick: play from there, or hold it frozen on that frame. Works on stored recordings. */
   playFrom(slot, tick, { frozen = false, mode = null, rate = null } = {}) {
@@ -609,6 +622,7 @@ export class World {
     const pb = this.playbacks[slot]; if (!pb) return;
     if (!pb.active) { pb.active = true; pb.coherence = 1; pb.age = 0; }
     pb.head = clamp(head, 0, pb.rec.length - 1); pb.playing = false;
+    this.refreshDerived();
   }
 
   // ------------------------------------------------------------------ consequence: canon
