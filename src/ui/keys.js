@@ -17,7 +17,7 @@ export function forTouch(text) {
     .replace(/\(([ZXCVBNM])\)/g, '')
     .replace(/\b([Pp])ress (Shift\+Backspace|Shift\+K|Shift\+O|Backspace|Space|Tab|F6|[QRETLGYUHFO])\b/g, (_, p, k) => `${p === 'P' ? 'Tap' : 'tap'} ${BUTTON[k]}`)
     .replace(/\bClick\b/g, 'Tap').replace(/\bclick\b/g, 'tap')
-    .replace(/ \( \] \)/g, ' (×2 ⋯)')
+    .replace(/ \( \] \)/g, ' (×2 ⋯)').replace(/ \( \[ \)/g, ' (×½ ⋯)').replace(/\(, \.\)/g, '(⏮ ◂ ▸ ⏭ on the ⏱ reel)').replace(/hold Shift and \. , or Ctrl \+ move the mouse, or drag the reel/g, 'drag the ⏱ reel')
     .replace(/\bmouse and keyboard\b/g, 'touch, mouse or keyboard')
     .replace(/\s{2,}/g, ' ');
 }

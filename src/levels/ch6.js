@@ -89,7 +89,7 @@ export default {
     { id: 'x2', name: 'The Blind Eye', trigger: [-9, -1, -168, 9, 8, -147], checkpoint: { pos: [0, 0, -148], yaw: 0 },
       intro: 'The second Eye watches the whole hall from above the door you came through. Twice a cycle its shutter crosses the lens, and for a heartbeat the far door forgets to be afraid.',
       objective: 'Leave the hall.',
-      hint: 'You cannot outrun a heartbeat. But a heartbeat can be recorded, slowed (×½ with [ ), scrubbed (, .) and held still (T). A memory in front of the lens is still in front of the lens.' },
+      hint: 'You cannot outrun a heartbeat. But a heartbeat can be recorded, slowed (×½ with [ ), stepped through tick by tick (, .) and held still (F). A memory in front of the lens is still in front of the lens.' },
     { id: 'd', name: 'The Master Record', trigger: [-14, -1, -220, 14, 12, -169], checkpoint: { pos: [0, 0, -170], yaw: 0 },
       intro: 'The Master Record. Three spans, ten seconds, one beat. At the far end is the place where the Recollector began.',
       objective: 'Cross the void, then stand where you stood — both of you.',

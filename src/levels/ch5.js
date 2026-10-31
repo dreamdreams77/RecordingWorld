@@ -77,7 +77,7 @@ export default {
     { id: 'd', name: 'The Prism Hall', trigger: [-10, 17, -160, 10, 28, -104], checkpoint: { pos: [0, 18, -106], yaw: 0 },
       intro: 'White light enters the prism and leaves as three colours, each behind a shutter that opens for four seconds in ten. Each sensor remembers its colour for a moment — but never long enough.',
       objective: 'Light red, green and blue together.',
-      hint: 'Record one full ten-second cycle of the sensors (stay clear of the beams), then play it OFFSET from the present by half a cycle — scrub to the middle (, .) before pressing T, or wait 5 s and press T. Two histories, half a cycle apart, can agree where one cannot.' },
+      hint: 'Record one full ten-second cycle of the sensors (stay clear of the beams), then play it OFFSET from the present by half a cycle — open the reel and move to the middle (hold Shift and . , or Ctrl + move the mouse, or drag the reel) and press T to play from there; or simply wait 5 s and press T. Two histories, half a cycle apart, can agree where one cannot.' },
   ],
   events: [{ on: 'section:d', actors: ['op5'] }, { on: 'section:d', ifFlag: 'canon:ch3:observatory', pin: { shG: 1 }, say: 'The green shutter has been propped open from the inside. Someone with a telescope has been here.', who: 'THE ARCHIVIST' }],
   barks: [{ id: 'ch5-b1', at: [7, 19, -111], r: 4, who: 'THE OPERATOR', text: 'The stars do not blink because nothing is looking at them.', truth: 'stars', trust: { operator: 1 } }],

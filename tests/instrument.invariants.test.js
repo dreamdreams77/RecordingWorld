@@ -106,3 +106,14 @@ test('boundaries: stepping, jumping and scrubbing at the ends, on empty slots, a
   w.startRecording(1, vol, 'r2'); g.selected = 1; assert.equal(I.scrubTo(10), false, 'cannot scrub while recording'); w.stopRecording();
   g.selected = 0; I.scrubTo(L >> 1); const cur = I.cursor; w.startRecording(1, vol, 'r3'); w.step(IN()); w.stopRecording(); assert.equal(I.cursor, cur, 'recording elsewhere leaves the cursor alone');
 });
+
+test('keyboard reach: tick-exact stepping is still fast enough for a 600-tick recording (hold Shift + ".")', () => {
+  const r = rig('ch1'), { w, I, g } = r; const p = [...w.player.st], vol = { x0: p[0] - 4, x1: p[0] + 4, y0: -1, y1: 4, z0: p[2] - 4, z1: p[2] + 4 };
+  w.caps.maxTicks = 600; w.startRecording(0, vol, 'long'); for (let i = 0; i < 600; i++) w.step(IN({ mx: i % 100 < 50 ? 1 : -1 })); w.stopRecording(); assert.ok(w.recordings[0].length >= 590);
+  const down = new Set(), pressed = new Set(), keys = { held: (...c) => c.some((k) => down.has(k)), hit: (...c) => c.some((k) => pressed.has(k)), dx: 0, wheel: 0 };
+  const frames = (n, codes, shift) => { for (let f = 0; f < n; f++) { codes.forEach((c) => down.add(c)); if (shift) down.add('ShiftLeft'); if (f === 0) codes.forEach((c) => pressed.add(c)); I.keys(keys, 1 / 60); pressed.clear(); } down.clear(); };
+  frames(1, ['Period'], false); assert.equal(I.head(), 1, 'a single tap is exactly one tick');
+  I.scrubTo(0); frames(90, ['Period'], false); assert.ok(I.head() > 25 && I.head() < 200, `holding "." for 1.5 s reaches tick ${I.head()}`);
+  I.scrubTo(0); frames(120, ['Period'], true); assert.ok(I.head() >= 300, `holding Shift + "." for 2 s reaches tick ${I.head()} (the Prism Hall needs 300)`);
+  frames(1, ['Home'], false); assert.equal(I.head(), 0); frames(1, ['End'], false); assert.equal(I.head(), w.recordings[0].length - 1);
+});
