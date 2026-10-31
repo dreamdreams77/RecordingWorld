@@ -23,7 +23,8 @@ export class TouchControls {
     tl.append(
       this.button('☰', () => ({ code: 'Escape' }), 'sm'),
       this.button('⟲', () => ({ code: 'F6' }), 'sm', 'rewind'),
-      this.button('①', () => this.cycleSlot(), 'sm slotsel', 'slot'),
+      this.button('①', () => { this.g.instr?.poke(); return this.cycleSlot(); }, 'sm slotsel', 'slot'),
+      this.button('⏱', () => { const i = this.g.instr; i.reelPinned = !i.reelPinned; i.poke(); }, 'sm', 'reel'),
     );
     this.slotBtn = tl.querySelector('.slotsel');
     // right cluster: the actions you use every few seconds

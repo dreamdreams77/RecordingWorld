@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0 — the instrument
+* **The reel:** a timeline that is not a video scrubber. Each recorded object has a lane showing when it was inside the volume and when its state changed; the significant moments (a plate pressed or released, a door opening, a note sung, an Eye seeing someone, a crate pushed, something entering or leaving) are marked where they happened and described in words ("Now: plateA pressed · next: plateA released in 0.35 s"). It opens while recording or handling an echo and falls away to a row of chips while exploring.
+* **Preview before committing:** scrub to any moment of a stored recording and a **ghost** appears in the real 3D scene — outlines of every recorded object, brighter for the ones that will change the world (a door that will be open, a plate that will be down). Then play from there (T) or freeze there (F). The ghost samples the stored tracks into scratch buffers: no world copy, no extra entity views, ~0.003 ms per frame.
+* **Frame-exact control:** `,` `.` move exactly one tick (hold to repeat, accelerating; Shift = ten), `;` `'` jump between events, Home/End, **Ctrl + mouse** is a jog wheel, the mouse wheel steps while a moment is under inspection. On touch: drag the reel, ◂ ▸ step (hold to repeat), ⏮ ⏭ events, tap a lane to leave an object out (hold: only it).
+* **Freeze (F):** hold an echo on a frame, step it tick by tick, release.
+* **Every verb has its own voice:** reverse (tape sucked backwards, warm amber, scan-lines run the other way, ring contracts), slow (heavy winding-down), fast, loop (the seam closing), freeze (glassy chime, pale faceted ice on the echo), omit (hollow thud, plum ring pulling inward), solo (a bell, a bright rim), scrub (tape-head hiss whose pitch follows position), event jump (a tick). Echoes visibly change in the world: frozen, reversed, slowed or solo echoes look different.
+* Everything works with keyboard, mouse (Ctrl jog) and touch; previewing never touches the simulation (tested: 300 scrub/ghost/jump operations leave the world hash unchanged); saves, rewinds and omit/solo state round-trip exactly.
+
 ## 1.3.0 — the Recollector edits history
 * **Selective playback (O / Shift+O):** leave any object out of an echo, or replay only it. Freezing an echo (T while playing) is now labelled as such on the deck.
 * **The Unwitnessed Hall (VI):** two Eyes that see every Recollector, present or remembered. *The Witness* — the plate must be pressed and nobody seen: replay yourself, then remove yourself from your own memory. *The Blind Eye* — the shutter blinds the Eye for a heartbeat: record it, slow and scrub it to the covering frame, freeze it, and walk out behind a memory. Both verified by the bot and by negative tests.

@@ -15,14 +15,14 @@ const CONTROLS = [
   ['Q', 'Frame mode: aim a recording volume'], ['Left click', 'Pin the framed volume (in frame mode)'], ['Mouse wheel', 'Resize volume  (Shift: height only)'], ['Right click', 'Clear the pinned volume'],
   ['R', 'Record / stop (uses pinned volume, or a volume around you)'], ['1 – 6', 'Select recording slot'],
   ['T', 'Play / pause the selected slot'], ['Y', 'Stop (dismiss the echo)'], ['U', 'Play every slot on the same tick'], ['L', 'Cycle playback mode: once · loop · ping-pong · hold'],
-  ['G', 'Reverse direction'], ['T (while playing)', 'Freeze the echo at this moment / resume'], ['O', 'Selective playback: leave the aimed object out of its echo  (Shift: replay only it)'], [', .', 'Scrub back / forward  (Shift: faster)'], ['[ ]', 'Playback rate'], ['Backspace', 'Erase the selected slot'],
+  ['G', 'Reverse direction'], ['T (while playing)', 'Freeze the echo at this moment / resume'], ['O', 'Selective playback: leave the aimed object out of its echo  (Shift: replay only it)'], [', .', 'Step the timeline back / forward exactly one tick (hold to repeat; Shift: ten ticks)'], ['; \'', 'Jump to the previous / next event in the recording (a plate pressed, a door opening…)'], ['Home · End', 'Jump to the start / end of the recording'], ['Ctrl + mouse', 'Jog wheel: move the mouse sideways to drag through history; the view stays still (Shift: coarse)'], ['F', 'Freeze the echo at this moment (or at the previewed one) · F again releases'], ['T (on a previewed moment)', 'Play from the moment you are looking at'], ['[ ]', 'Playback rate'], ['Backspace', 'Erase the selected slot'],
   ['Z X C V B N M', 'Hold to sing notes C D E F G A B'], ['Tab', 'Expand the state comparison'], ['H', 'Show / hide the hint'],
   ['K', 'Return to checkpoint and recall crates'], ['Shift+K', 'Reset the section (keeps your recordings)'], ['F6', 'Rewind: step back through automatic captures'], ['Shift+Backspace', 'Roll the selected slot back to its previous take'], ['F5', 'Save a snapshot'], ['F3 · F4', 'Developer overlay · trajectories and volumes'], ['Esc', 'Pause'],
   ['Sandbox: B · Enter · Del · F', 'Cycle item · place · remove · link source → sink  (Shift+F: link inverted)'],
 ];
 
 const TOUCH_CONTROLS = [
-  ['Left thumb', 'Move stick (appears where you touch)'], ['Right thumb', 'Drag to look · quick tap = click (pin the frame / place)'],
+  ['Left thumb', 'Move stick (appears where you touch)'], ['Right thumb', 'Drag to look · quick tap = click (pin the frame / place)'], ['⏱', 'Keep the reel open: drag its timeline, step ▸ ◂ one tick, ⏮ ⏭ between events, ❄ FREEZE, tap a lane name to leave an object out (hold: only it)'],
   ['FRAME · REC · USE · PLAY · JUMP', 'The main actions (Q · R · E · T · Space)'], ['① button', 'Cycle the recording slot'], ['⟲', 'Rewind (F6)'], ['☰', 'Pause menu'],
   ['⋯', 'More: STOP · MODE · REV · scrub ◂ ▸ · size − + · unpin ✕ · TAB · ALL · HINT · ×½ ×2 · ERASE · UNDO · RESET'], ['♪', 'Sing notes C D E F G A B (hold)'],
 ];

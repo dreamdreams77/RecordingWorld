@@ -276,3 +276,65 @@ test('selective playback: a muted track leaves the echo, survives snapshot/rewin
   w.soloTrack(0, 'player');
   assert.equal(w.playbacks[0].muted.size, 0, 'solo again restores everything');
 });
+
+// ---- the instrument: markers, preview sampling, tick-exact stepping
+async function recordedStand() {
+  const { World, IDLE } = await import('../src/sim/world.js');
+  const { LEVELS } = await import('../src/levels/index.js');
+  const w = new World(LEVELS.ch1), plate = w.byId.get('plateA'), [px, , pz] = plate.def.pos;
+  w.teleportPlayer([px + 4, 0, pz], 0);
+  w.startRecording(0, { x0: px - 3, x1: px + 6, y0: -1, y1: 3, z0: pz - 3, z1: pz + 3 }, 'walk on');
+  for (let i = 0; i < 20; i++) w.step(IDLE);
+  w.teleportPlayer([px, 0, pz], 0);            // steps onto the plate at tick 20
+  for (let i = 0; i < 40; i++) w.step(IDLE);
+  w.teleportPlayer([px + 4, 0, pz], 0);        // and off again at tick 60
+  for (let i = 0; i < 20; i++) w.step(IDLE);
+  w.stopRecording();
+  return { w, IDLE, plate };
+}
+
+test('markers are derived from the stored history: the plate press and release appear at the right ticks', async () => {
+  const { w } = await recordedStand();
+  const rec = w.recordings[0], m = rec.markers.filter((k) => k.kind === 'plate');
+  assert.equal(m.length, 2, 'one press and one release');
+  assert.ok(m[0].dir === 1 && m[1].dir === -1 && m[0].t < m[1].t);
+  assert.ok(Math.abs(m[0].t - 21) <= 2 && Math.abs(m[1].t - 61) <= 2, `ticks ${m[0].t}/${m[1].t}`);
+  assert.match(m[0].label, /pressed/); assert.equal(rec.markers, rec.markers, 'cached');
+  const j = JSON.parse(JSON.stringify(w.snapshot())), { Recording } = await import('../src/sim/recording.js');
+  assert.deepEqual(Recording.fromJSON(j.recs[0]).markers.map((k) => [k.t, k.id, k.kind]), rec.markers.map((k) => [k.t, k.id, k.kind]), 'identical after save/load');
+});
+
+test('preview sampling reads a moment without touching the world, allocating, or disagreeing with real playback', async () => {
+  const { w, IDLE } = await recordedStand();
+  const rec = w.recordings[0], before = w.hash();
+  const a = rec.sampleAll(40), again = rec.sampleAll(10);
+  assert.equal(a, again, 'the scratch list is reused, not reallocated');
+  assert.equal(w.hash(), before, 'previewing changes nothing in the world');
+  const at40 = rec.sampleAll(40).find((e) => e.id === 'plateA');
+  assert.equal(at40.st[0], 1, 'at tick 40 the plate was down'); assert.equal(rec.sampleAll(5).find((e) => e.id === 'plateA').st[0], 0, 'and at tick 5 it was up');
+  // real playback frozen at the same tick agrees with the preview exactly
+  const p = w.byId.get('player'), px = rec.sampleAll(40).find((e) => e.id === 'player').st[0];
+  w.playFrom(0, 40, { frozen: true });
+  const echo = w.aliveList.find((L) => L.echo && L.id === 'player');
+  assert.equal(echo.st[0], px, 'preview position == frozen echo position');
+  assert.equal(rec.sampleAll(10_000)[0] !== undefined, true, 'out-of-range ticks clamp instead of throwing');
+  assert.equal(rec.sampleAll(-50).find((e) => e.id === 'plateA').st[0], 0, 'negative ticks clamp to the start');
+  const muted = new Set(['player']); assert.equal(rec.sampleAll(40, muted).find((e) => e.id === 'player').alive, false, 'omitted tracks are not previewed');
+});
+
+test('playFrom and stepHead are tick-exact, freeze really freezes, and rewinding restores the moment', async () => {
+  const { w, IDLE } = await recordedStand();
+  assert.equal(w.playFrom(0, 30, { frozen: true }), true);
+  const pb = w.playbacks[0];
+  assert.equal(pb.head, 30); assert.equal(pb.playing, false);
+  for (let i = 0; i < 25; i++) w.step(IDLE);
+  assert.equal(pb.head, 30, 'a frozen echo does not advance');
+  w.stepHead(0, 1); assert.equal(pb.head, 31); w.stepHead(0, -2); assert.equal(pb.head, 29);
+  w.stepHead(0, -999); assert.equal(pb.head, 0, 'clamped at the start'); w.stepHead(0, 9999); assert.equal(pb.head, w.recordings[0].length - 1, 'clamped at the end');
+  const cap = w.capture(); w.playFrom(0, 5); for (let i = 0; i < 30; i++) w.step(IDLE);
+  w.reinstate(cap); assert.equal(w.playbacks[0].head, w.recordings[0].length - 1);
+  assert.equal(w.playFrom(3, 10), false, 'an empty slot cannot be played');
+  w.playFrom(0, 12, { mode: 'loop' }); for (let i = 0; i < 4; i++) w.step(IDLE);
+  assert.equal(w.playbacks[0].head, 16, 'playFrom starts real playback from that tick');
+  w.reverse(0); w.step(IDLE); assert.equal(w.playbacks[0].head, 15, 'and reverse runs it backwards from there');
+});

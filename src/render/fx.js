@@ -230,11 +230,11 @@ export class BurstFX {
     this.cursor = 0; this.ringCursor = 0; this.c = new THREE.Color();
   }
   /** kind: colour; size: ring radius in metres; sparks: how many particles. */
-  emit(pos, { color = 0xe8c88a, size = 3, dur = 0.9, sparks = 18, vertical = false, speed = 3 } = {}) {
+  emit(pos, { color = 0xe8c88a, size = 3, dur = 0.9, sparks = 18, vertical = false, speed = 3, inward = false } = {}) {
     if (!pos) return;
     const r = this.rings[this.ringCursor++ % this.rings.length];
     r.m.position.set(pos[0], pos[1], pos[2]); r.m.rotation.set(vertical ? 0 : -Math.PI / 2, 0, 0);
-    r.m.material.color.set(color); r.t = 0; r.dur = dur; r.size = size; r.vertical = vertical; r.m.visible = true;
+    r.m.material.color.set(color); r.t = 0; r.dur = dur; r.size = size; r.vertical = vertical; r.inward = inward; r.m.visible = true;
     this.c.set(color);
     for (let i = 0; i < sparks; i++) {
       const k = this.cursor++ % this.N, a = Math.random() * Math.PI * 2, u = Math.random() * 0.9 + 0.1, s = speed * (0.4 + Math.random());
@@ -249,8 +249,8 @@ export class BurstFX {
       if (r.t >= 1) continue;
       r.t += dt / r.dur;
       if (r.t >= 1) { r.m.visible = false; continue; }
-      const e = 1 - (1 - r.t) ** 3;
-      r.m.scale.setScalar(0.2 + r.size * e); r.m.material.opacity = (1 - r.t) * 0.8;
+      const e = r.inward ? (1 - r.t) ** 2 : 1 - (1 - r.t) ** 3; // reverse and omit pull inward; everything else radiates
+      r.m.scale.setScalar(0.2 + r.size * e); r.m.material.opacity = (r.inward ? r.t : 1 - r.t) * 0.8 + (r.inward ? 0.1 : 0);
       if (r.vertical) r.m.lookAt(camera.position);
     }
     let live = false;
@@ -297,4 +297,67 @@ export class TrailFX {
     }
     for (const t of this.lines) if (!seen.has(t)) { t.n = 0; t.last = null; t.line.visible = false; }
   }
+}
+
+/**
+ * The preview ghost: where every recorded object will be at the moment under the reel's cursor, drawn as outlines in
+ * the actual 3D scene. It reads the recording's tracks into scratch buffers (Recording.sampleAll) — no world copy, no
+ * entity views, no allocation per frame. Objects whose state differs from the present (a door that will be open, a plate
+ * that will be down) glow brighter, because those are the ones that will change the world when the echo plays.
+ */
+export class GhostFX {
+  constructor(scene) {
+    this.group = new THREE.Group(); this.group.visible = false; scene.add(this.group);
+    this.edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+    this.fillGeo = new THREE.BoxGeometry(1, 1, 1);
+    this.capEdge = new THREE.EdgesGeometry(new THREE.CapsuleGeometry(0.3, 1.2, 2, 10));
+    this.hue = new THREE.Color(0xffa94d);
+    this.edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    this.hotMat = new THREE.LineBasicMaterial({ color: 0xfff1c0, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    this.fillMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    this.hotFill = new THREE.MeshBasicMaterial({ color: 0xfff1c0, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    this.pool = [];
+    for (let i = 0; i < 72; i++) {
+      const g = new THREE.Group(), edge = new THREE.LineSegments(this.edgeGeo, this.edgeMat), fill = new THREE.Mesh(this.fillGeo, this.fillMat);
+      edge.renderOrder = 7; fill.renderOrder = 6; g.add(fill, edge); g.visible = false; g.userData = { edge, fill }; this.group.add(g); this.pool.push(g);
+    }
+    this.cap = new THREE.LineSegments(this.capEdge, this.edgeMat); this.cap.renderOrder = 7; this.cap.visible = false; this.group.add(this.cap);
+    this.capHot = new THREE.LineSegments(this.capEdge, this.hotMat); this.capHot.renderOrder = 8; this.capHot.visible = false; this.group.add(this.capHot);
+    this.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    this.beam.visible = false; this.group.add(this.beam);
+  }
+  /** @param ghost {entries, slot, world, hue, near: Set<id>} or null */
+  update(ghost, clock) {
+    if (!ghost) { this.group.visible = false; return; }
+    this.group.visible = true;
+    const w = ghost.world, pulse = 0.75 + 0.25 * Math.sin(clock * 6);
+    this.hue.set(SLOT_HUES[ghost.slot % SLOT_HUES.length]);
+    this.edgeMat.color.copy(this.hue); this.fillMat.color.copy(this.hue);
+    this.hotMat.opacity = 0.6 + 0.35 * pulse; this.hotFill.opacity = 0.12 + 0.12 * pulse;
+    let n = 0, cap = false;
+    for (const e of ghost.entries) {
+      if (!e.alive) continue;
+      const d = e.def; if (d.pos && d.pos[1] < -40) continue; // logic nodes have no place in the world
+      const a = e.type.anchor(d, e.st);
+      const hot = ghost.near.has(e.id) || differs(w, e);
+      if (e.type.name === 'player') {
+        const m = hot ? this.capHot : this.cap; m.visible = true; (hot ? this.cap : this.capHot).visible = false;
+        m.position.set(a[0], a[1], a[2]); m.rotation.y = e.st[6]; cap = true;
+        this.beam.visible = true; this.beam.position.set(a[0], a[1] / 2, a[2]); this.beam.scale.set(1, Math.max(0.01, a[1]), 1);
+        continue;
+      }
+      if (n >= this.pool.length) break;
+      const s = e.type.size(d); if (!s) continue;
+      const g = this.pool[n++], u = g.userData;
+      g.visible = true; g.position.set(a[0], a[1], a[2]); g.scale.set(Math.max(0.05, s[0]), Math.max(0.05, s[1]), Math.max(0.05, s[2]));
+      u.edge.material = hot ? this.hotMat : this.edgeMat; u.fill.material = hot ? this.hotFill : this.fillMat;
+    }
+    for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;
+    if (!cap) { this.cap.visible = this.capHot.visible = this.beam.visible = false; }
+  }
+}
+function differs(w, e) { // does this object's recorded state differ from the present one? (the ones that will change the world)
+  const P = w.byId.get(e.id); if (!P || P.type !== e.type) return false;
+  const k = e.type.keyCh; if (k < 0) return false;
+  return (P.st[k] > 0.5) !== (e.st[k] > 0.5);
 }

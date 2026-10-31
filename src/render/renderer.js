@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { MaterialLibrary } from './materials.js';
 import { EntityViews, LightPool } from './entities.js';
-import { BeamFX, ConflictFX, FrameFX, RecordingFX, SoundFieldFX, BurstFX, TrailFX } from './fx.js';
+import { BeamFX, ConflictFX, FrameFX, RecordingFX, SoundFieldFX, BurstFX, TrailFX, GhostFX } from './fx.js';
 import { levelBounds } from './scenery.js';
 import { PostFX } from './postfx.js';
 import { Props } from './props.js';
@@ -91,7 +91,7 @@ export class GameRenderer {
     this.lights = new LightPool(this.scene, this.q.lights);
     this.views = new EntityViews(this.scene, this.lib, this.lights, this.q);
     this.beams = new BeamFX(this.scene); this.conflicts = new ConflictFX(this.scene, this.lib.time);
-    this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene); this.burstFx = new BurstFX(this.scene); this.trails = new TrailFX(this.scene);
+    this.frameFx = new FrameFX(this.scene); this.recFx = new RecordingFX(this.scene); this.burstFx = new BurstFX(this.scene); this.trails = new TrailFX(this.scene); this.ghost = new GhostFX(this.scene);
     this.hero = buildHero(this.theme, level, this.q); this.scene.add(this.hero.group);
     this.props = new Props(this.scene, this.lib, this.theme, this.level);
     this.soundField = level.sound ? new SoundFieldFX(this.scene, levelBounds(level)) : null;
@@ -223,6 +223,7 @@ export class GameRenderer {
     this.soundField?.update(world, this.clock);
     this.burstFx?.update(dt, this.camera);
     this.trails?.update(world);
+    this.ghost?.update(fs.ui.ghost ?? null, this.clock);
     this.hero?.update(this.clock, world, dt);
     this.lights.flush(cam.position);
     // post parameters: interference grows with conflicts and lost coherence

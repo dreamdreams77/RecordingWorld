@@ -11,6 +11,8 @@ import { HUD } from '../ui/hud.js';
 import { Input } from './input.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { TouchControls } from '../ui/touch.js';
+import { Instrument } from './instrument.js';
+import { Reel } from '../ui/reel.js';
 import { SPAWNABLE } from '../levels/sandbox.js';
 import { loadProgress, saveProgress, levelRecord, saveSnapshot, loadSnapshot } from './progress.js';
 
@@ -39,6 +41,9 @@ export class Game {
     this.coach = { step: 0, t: 0 };
     this.cine = null;
     this.rewinds = []; this.sectionCaps = {}; this.lastCap = 0;
+    this.instr = new Instrument(this);
+    this.reel ??= new Reel(this);
+    this.instr.clear();
     this.renderer = new GameRenderer(this.canvas, this.settings);
     this.canvas.addEventListener('click', () => { if (this.state === 'play' && !this.input.locked) this.input.lock(); });
     addEventListener('resize', () => this.resize());
@@ -309,7 +314,7 @@ export class Game {
   // ------------------------------------------------------------------ per-frame control
   frame(now) {
     requestAnimationFrame((t) => this.frame(t));
-    this.touchUI?.update();
+    this.touchUI?.update(); this.reel?.update();
     const dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
     this.fps += (1 / Math.max(dt, 1e-4) - this.fps) * 0.05;
     if (this.state === 'play') this.playFrame(dt);
@@ -330,7 +335,7 @@ export class Game {
     if (I.hit('F5')) this.quickSave();
     if (I.hit('KeyK')) { if (I.held('ShiftLeft', 'ShiftRight')) this.resetSection(); else this.restartSection(); }
     if (I.hit('F6')) this.rewind();
-    for (let n = 0; n < 6; n++) if (I.hit(`Digit${n + 1}`) && n < w.caps.slots) { this.selected = n; this.audio?.event('select'); }
+    for (let n = 0; n < 6; n++) if (I.hit(`Digit${n + 1}`) && n < w.caps.slots) { this.selected = n; this.instr.clear(); this.instr.poke(); this.audio?.event('select'); }
     if (I.hit('KeyQ')) { this.frameMode = !this.frameMode; this.audio?.event('select'); }
     // frame: wheel resizes, click pins, right click clears
     if (this.frameMode || this.pinned) {
@@ -349,23 +354,21 @@ export class Game {
       if (w.recorder) { w.stopRecording(); this.audio?.event('rec-stop'); this.renderer.pulse(0.1); }
       else {
         const vol = this.pinned ?? (this.frameMode ? this.previewVolume() : this.defaultVolume());
-        if (w.startRecording(this.selected, this.clampVolume(vol), `Recording ${this.selected + 1}`)) { this.pinned = vol; this.frameMode = false; this.audio?.event('rec-start'); this.renderer.pulse(0.14); }
+        if (w.startRecording(this.selected, this.clampVolume(vol), `Recording ${this.selected + 1}`)) { this.pinned = vol; this.frameMode = false; this.instr.clear(); this.instr.poke(); this.audio?.event('rec-start'); this.renderer.pulse(0.14); }
       }
     }
     const pb = w.playbacks[this.selected];
-    if (I.hit('KeyT')) { if (pb) { w.togglePlay(this.selected); this.audio?.event('play'); } }
-    if (I.hit('KeyY')) { w.stop(this.selected); this.audio?.event('stop'); }
-    if (I.hit('KeyG')) w.reverse(this.selected);
-    if (I.hit('KeyL')) { const m = w.cycleMode(this.selected); if (m) this.hud.toast(`slot ${this.selected + 1}: ${m}`, ''); }
+    if (I.hit('KeyT')) this.instr.togglePlay();
+    if (I.hit('KeyY')) { w.stop(this.selected); this.instr.clear(); this.instr.poke(); this.audio?.event('stop'); }
+    if (I.hit('KeyG')) this.instr.reverse();
+    if (I.hit('KeyL')) this.instr.cycleMode();
     if (I.hit('Backspace') && I.held('ShiftLeft', 'ShiftRight')) {
       const r = w.rollbackRecording(this.selected);
       this.hud.toast(r ? `Slot ${this.selected + 1}: restored “${r.name}” (${w.undo[this.selected].length} earlier take${w.undo[this.selected].length === 1 ? '' : 's'} left).` : 'No earlier take in this slot.', r ? 'good' : 'warn', 'ROLLBACK');
-    } else if (I.hit('Backspace')) { if (w.recordings[this.selected]) { w.eraseRecording(this.selected); this.hud.toast(`slot ${this.selected + 1} erased`, 'warn'); } }
-    if (I.hit('BracketLeft') && pb) { const i = RATES.indexOf(Math.abs(pb.rate)); w.setRate(this.selected, RATES[Math.max(0, i - 1)]); }
-    if (I.hit('BracketRight') && pb) { const i = RATES.indexOf(Math.abs(pb.rate)); w.setRate(this.selected, RATES[Math.min(RATES.length - 1, i + 1)]); }
-    const sh = I.held('ShiftLeft', 'ShiftRight') ? 4 : 1;
-    if (I.held('Comma')) w.scrub(this.selected, -2 * sh);
-    if (I.held('Period')) w.scrub(this.selected, 2 * sh);
+    } else if (I.hit('Backspace')) { if (w.recordings[this.selected]) { w.eraseRecording(this.selected); this.instr.clear(); this.hud.toast(`slot ${this.selected + 1} erased`, 'warn'); } }
+    if (I.hit('BracketLeft')) this.instr.rate(-1);
+    if (I.hit('BracketRight')) this.instr.rate(1);
+    this.instr.keys(I, dt);
     // interact / tape pedestals
     if (I.hit('KeyE')) {
       const tape = this.director.nearbyTape();
@@ -384,9 +387,8 @@ export class Game {
     if (!p) { this.hud.toast('Aim at an object inside a recording, then press O to leave it out of the replay.', 'warn'); return; }
     const slot = p.item.echo ? p.item.layer - 1 : this.selected, id = p.item.id;
     if (!w.recordings[slot]?.tracks.has(id)) { this.hud.toast(`Recording ${slot + 1} does not contain ${id}. Select the slot whose echo holds it.`, 'warn'); return; }
-    const r = solo ? w.soloTrack(slot, id) : w.muteTrack(slot, id);
+    const keep = this.selected; this.selected = slot; const r = this.instr.lane(id, solo); this.selected = keep;
     this.teach('r-selective', 'SELECTIVE PLAYBACK', 'A recording is a bundle of histories, one per object. Leave one out (O) and the echo replays without it; isolate one (Shift+O) and only that object’s history returns. What is left out simply did not happen — in that echo.');
-    this.audio?.event('select');
     if (solo) this.hud.toast(r ? `Recording ${slot + 1} now replays only ${id}.` : `Recording ${slot + 1} replays everything again.`, 'good', 'SELECTIVE PLAYBACK');
     else this.hud.toast(r ? `${id} is left out of recording ${slot + 1}.` : `${id} returns to recording ${slot + 1}.`, 'good', 'SELECTIVE PLAYBACK');
   }
@@ -447,7 +449,8 @@ export class Game {
     const I = this.input, w = this.world;
     // look
     const sens = 0.0022 * this.settings.sensitivity;
-    this.yaw -= I.dx * sens; this.pitch = clamp(this.pitch - I.dy * sens * (this.settings.invertY ? -1 : 1), -1.45, 1.45);
+    this.instr.jogging = I.held('ControlLeft', 'ControlRight') && !!this.instr.rec && !w.recorder; // Ctrl turns the mouse into the jog wheel
+    if (!this.instr.jogging) this.yaw -= I.dx * sens; if (!this.instr?.jogging) this.pitch = clamp(this.pitch - I.dy * sens * (this.settings.invertY ? -1 : 1), -1.45, 1.45);
     this.handleKeys(dt);
     if (this.state !== 'play') return;
     // fixed-step simulation
@@ -485,6 +488,16 @@ export class Game {
     else if (c.step === 4) { c.said = null; this.hud.subtitle.style.opacity = 0; c.step = 5; }
   }
   /** One-time explanations of the reconciliation rules, shown the first time the player meets each. */
+  /** Visual voice of each verb: a ring and sparks where the echo is, and a wash at the edge of the view. */
+  feel(kind, slot, id = null) {
+    const W = { play: [0xe8c88a, 'out'], forward: [0xe8c88a, 'out'], reverse: [0xe0944a, 'in'], slow: [0x9db4c8, 'out'], fast: [0xd8d8e4, 'out'], loop: [0xf0d890, 'out'],
+      freeze: [0xf2f8ff, 'out'], thaw: [0xbcd8f0, 'out'], omit: [0x8c6a8e, 'in'], unomit: [0x8c6a8e, 'out'], solo: [0xffe6a8, 'out'], mode: [0xcccccc, 'out'] }[kind];
+    if (!W) return;
+    const pb = this.world.playbacks[slot], it = (id && pb?.items.get(id)) || pb?.items.get('player');
+    const pos = it?.alive ? [it.st[0], it.st[1] - 0.8, it.st[2]] : [...this.world.player.st.slice(0, 3)];
+    this.renderer.burst(pos, { color: W[0], size: kind === 'freeze' ? 3.2 : 2.4, dur: kind === 'slow' ? 1.4 : 0.8, sparks: kind === 'freeze' ? 30 : kind === 'solo' ? 24 : 12, speed: kind === 'freeze' ? 1.4 : 3, inward: W[1] === 'in' });
+    this.hud.wash(kind);
+  }
   teach(key, title, text, kind = '') {
     const seen = this.progress.seen;
     if (seen[key]) return; seen[key] = 1; saveProgress(this.progress);
@@ -551,7 +564,7 @@ export class Game {
     if (w.recorder) { frame = w.recorder.rec.volume; color = 0xff8a5a; }
     else if (this.pinned) { frame = this.pinned; color = SLOT_HEX[this.selected % 6]; }
     else if (this.frameMode) { frame = this.previewVolume(); color = 0xe8c88a; }
-    this.renderer.render({ world: w, dt, cam, found: this.director.found, ui: { frame, frameColor: color, recording: !!w.recorder, selected: this.selected, showVolumes: this.showVolumes, showTraj: this.showTraj } });
+    this.renderer.render({ world: w, dt, cam, found: this.director.found, ui: { ghost: this.instr.ghost(), frame, frameColor: color, recording: !!w.recorder, selected: this.selected, showVolumes: this.showVolumes, showTraj: this.showTraj } });
   }
   /** One line of cause for what the Recollector is looking at: what it listens to, and which history is answering. */
   whyText(x) {
@@ -588,7 +601,7 @@ export class Game {
     if (w.recorder) return k('R', 'stop recording') + k('1-' + w.caps.slots, 'slot');
     const parts = [k('Q', 'frame'), k('R', 'record')];
     if (this.frameMode) parts.unshift(k('LMB', 'pin volume'), k('wheel', 'size'));
-    if (w.playbacks[this.selected]) parts.push(k('T', 'play/pause'), k('Y', 'stop'), k('L', 'mode'), k('G', 'reverse'), k(', .', 'scrub'));
+    if (w.playbacks[this.selected]) parts.push(k('T', 'play/pause'), k('Y', 'stop'), k('L', 'mode'), k('G', 'reverse'), k(', .', 'step 1 tick'), k('F', 'freeze'), k('Ctrl+mouse', 'jog'));
     if (w.level.id !== 'ch1' || this.director.sectionIndex >= 0) parts.push(k('E', 'use'));
     if (w.level.sound || w.level.id !== 'ch1') parts.push(k('Z–M', `voice${tone ? ' ' + NOTE_NAMES[tone - 1] : ''}`));
     if (tape) parts.unshift(k('E', `load tape: ${tape.name}`));

@@ -39,6 +39,25 @@ check('REC button starts a recording', await until(() => !!window.__game.world.r
 await until(() => window.__game.world.recorder.tau > 90); await btn('REC').tap();
 check('REC again stores a real recording', await until(() => !window.__game.world.recorder && !!window.__game.world.recordings[0]));
 await btn('JUMP').tap();
+// --- the reel on touch: open it, drag the timeline with a finger, step, freeze, omit a lane
+await btn('⏱').tap();
+check('⏱ opens the reel', await until(() => { window.__game.reel.update(); return window.__game.reel.open; }));
+const box = await p.locator('.rl-cv').boundingBox();
+check('the reel has a timeline canvas on screen', !!box && box.width > 200 && box.height > 30);
+await touch('touchStart', [[box.x + box.width * 0.5, box.y + box.height * 0.6]]); await touch('touchMove', [[box.x + box.width * 0.7, box.y + box.height * 0.6]]); await touch('touchEnd', []);
+check('dragging the timeline with a finger moves the preview cursor', await until(() => { const i = window.__game.instr; return i.cursor !== null && i.cursor.tick > 10; }));
+const t0 = await p.evaluate(() => window.__game.instr.cursor.tick);
+await p.locator('.rl-b:has-text("▸")').first().tap(); await p.waitForTimeout(100);
+check('▸ steps exactly one tick', await until(() => window.__game.instr.cursor.tick === window.__game.instr.cursor.tick) && (await p.evaluate(() => window.__game.instr.cursor.tick)) === t0 + 1);
+await p.locator('.rl-b:has-text("FREEZE")').first().tap();
+check('FREEZE HERE holds the echo on that frame', await until(() => { const pb = window.__game.world.playbacks[0]; return pb.active && !pb.playing; }));
+await p.locator('.rl-b:has-text("RELEASE")').first().tap().catch(() => {});
+await p.evaluate(() => { const g = window.__game; g.world.stop(0); g.instr.clear(); g.instr.reelPinned = true; g.instr.poke(); g.reel.update(); });
+const lane = await p.evaluate(() => { const g = window.__game; return g.reel.lanes.length; });
+check('lanes are shown for the recorded objects', lane >= 1, `${lane} lanes`);
+const box2 = await p.locator('.rl-cv').boundingBox();
+await p.touchscreen.tap(box2.x + 20, box2.y + 15 + 15 + 8);
+check('tapping a lane name leaves that object out of the echo', await until(() => window.__game.world.playbacks[0].muted.size === 1));
 await p.screenshot({ path: new URL('../docs/screenshots/13-touch-controls.png', import.meta.url).pathname, timeout: 120000 });
 await btn('☰').tap();
 check('menu button pauses', await until(() => window.__game.state === 'pause'));

@@ -52,3 +52,10 @@ All sound is synthesised. Voices (emitter tones, flywheel hum, conveyor, sliders
 created/retired from simulation state each frame and positioned with HRTF panners. Echo voices pass through a
 tape chain (band-limit, saturation, flutter, wetter reverb). Conflicts and lost coherence add a beating,
 crackling "interference" voice.
+
+
+## The instrument (reel, preview, ghost)
+* **`src/game/instrument.js`** owns the *preview cursor* (slot + tick) and every action between "I have a recording" and "the world plays it": step, jump to an event, play from here, freeze here, reverse, rate, mode, omit/solo. The cursor lives outside the simulation: it is not saved, not hashed and never steps the world. Committing goes through the ordinary world API (`playFrom`, `stepHead`, `muteTrack`), so determinism, saves and rewinds are unchanged. While an echo is out in the world, the same controls move *its* head instead.
+* **`Recording.markers`** (derived lazily from the frozen tracks, never stored) lists the significant moments; **`Recording.sampleAll(tau, muted)`** reads every track at a tick into reusable scratch buffers. The reel draws lanes and markers from the first; the ghost draws from the second.
+* **`src/ui/reel.js`** is the timeline: static layers (lanes, presence bars, keyframe ticks, markers) are cached per recording/mute-state/size; only the playhead, cursor and hover are drawn per frame. It handles pointer events itself (touch and an unlocked mouse); with the mouse locked, Ctrl + mouse movement is the jog wheel.
+* **`GhostFX`** (`src/render/fx.js`) draws pooled outlines for the sampled entries; entries whose state differs from the present glow. **`BurstFX`** and **`hud.wash`** give each verb a visual signature, **`AudioEngine.event`** a sonic one, and the echo shader takes `uFrozen/uRev/uSlow/uSolo` so echoes look like what is being done to them.

@@ -253,8 +253,28 @@ export class AudioEngine {
     this.env(g, t, 0.003, dur, vol); s.connect(bp); bp.connect(g); g.connect(this.bus.sfx); g.connect(this.reverbSend); s.loop = true; s.start(t, Math.random()); s.stop(t + dur + 0.1);
   }
   footstep(k = 1) { const f = { chamber: 1800, machine: 1200, absence: 900, acoustic: 1400, observatory: 2000, record: 1500 }[this.level?.theme] ?? 1400; this.noiseTick(f * (0.8 + Math.random() * 0.4), 0.09, 0.2 * k, 1.8); this.blip(70, 0.08, 0.1 * k, 'sine'); }
-  event(name) {
+  /** Every verb of the instrument has its own voice: you can play it with your eyes closed. */
+  event(name, arg = 0) {
     if (!this.ready) return;
+    switch (name) {
+      case 'reverse': this.blip(1100, 0.55, 0.17, 'sawtooth', 'sfx', 160); this.noiseTick(3200, 0.5, 0.16, 0.8); setTimeout(() => this.blip(180, 0.25, 0.12, 'sine', 'sfx', 90), 420); return;   // a tape sucked backwards
+      case 'forward': this.blip(180, 0.4, 0.13, 'sawtooth', 'sfx', 900); this.noiseTick(900, 0.3, 0.1); return;
+      case 'slow': this.blip(520, 0.9, 0.14, 'sine', 'sfx', 130); this.blip(262, 0.9, 0.08, 'triangle', 'sfx', 66); return;                                                             // winding down, heavy
+      case 'fast': this.blip(300, 0.35, 0.1, 'square', 'sfx', 1200); this.noiseTick(4200, 0.25, 0.14); return;
+      case 'loop': this.blip(523, 0.07, 0.14, 'triangle'); setTimeout(() => this.blip(523, 0.07, 0.12, 'triangle'), 90); setTimeout(() => this.blip(784, 0.18, 0.14, 'triangle'), 180); return; // the seam closing
+      case 'freeze': this.noiseTick(7000, 0.5, 0.18, 6); this.blip(3136, 1.6, 0.07, 'sine'); this.blip(2093, 1.9, 0.07, 'sine'); this.blip(1568, 2.2, 0.06, 'sine'); return;          // ice: glassy and still
+      case 'thaw': this.blip(1568, 0.3, 0.1, 'sine', 'sfx', 392); this.noiseTick(1200, 0.25, 0.1); return;
+      case 'omit': this.blip(330, 0.18, 0.2, 'triangle', 'sfx', 82); this.noiseTick(260, 0.2, 0.3, 0.7); return;                                                                         // something taken out: a hollow thud
+      case 'unomit': this.blip(82, 0.18, 0.18, 'triangle', 'sfx', 330); return;
+      case 'solo': this.blip(1568, 1.4, 0.13, 'sine'); this.blip(2349, 1.1, 0.08, 'sine'); this.noiseTick(5000, 0.08, 0.12, 4); return;                                                   // one thing singled out: a bell
+      case 'preview': this.blip(660, 0.05, 0.08, 'sine'); return;
+      case 'marker': this.blip(1760, 0.08, 0.1, 'triangle'); this.blip(2217, 0.1, 0.06, 'sine'); return;
+      case 'scrub': { // tape head over the oxide: pitch follows position in the recording
+        const now = performance.now(); if (now - (this._scrubAt ?? 0) < 38) return; this._scrubAt = now;
+        this.noiseTick(900 + Math.max(0, Math.min(1, arg)) * 3200, 0.03, 0.09, 3); return;
+      }
+      default:
+    }
     switch (name) {
       case 'rec-start': this.blip(880, 0.12, 0.2, 'square', 'sfx', 1320); this.noiseTick(3000, 0.04, 0.2); setTimeout(() => this.blip(1320, 0.18, 0.18, 'square'), 90); break;
       case 'rec-stop': this.blip(1320, 0.12, 0.18, 'square', 'sfx', 660); setTimeout(() => this.blip(660, 0.2, 0.16, 'square', 'sfx', 330), 90); break;

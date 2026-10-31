@@ -4,7 +4,7 @@
 export const IS_TOUCH = () => typeof document !== 'undefined' && document.body.classList.contains('touch');
 
 const BUTTON = {
-  Q: 'FRAME', R: 'REC', E: 'USE', T: 'PLAY', L: 'MODE ⋯', G: 'REV ⋯', Y: 'STOP ⋯', U: 'ALL ⋯', O: 'OMIT ⋯', 'Shift+O': 'SOLO ⋯', H: 'HINT ⋯', F: 'LINK',
+  Q: 'FRAME', R: 'REC', E: 'USE', T: 'PLAY', L: 'MODE ⋯', G: 'REV ⋯', Y: 'STOP ⋯', U: 'ALL ⋯', O: 'OMIT ⋯', 'Shift+O': 'SOLO ⋯', H: 'HINT ⋯', F: 'FREEZE ⏱',
   F6: '⟲', Space: 'JUMP', Tab: 'TAB ⋯', Backspace: 'ERASE ⋯', 'Shift+Backspace': 'UNDO ⋯', 'Shift+K': 'RESET ⋯',
 };
 const NOTE = { Z: 'C', X: 'D', C: 'E', V: 'F', B: 'G', N: 'A', M: 'B' };

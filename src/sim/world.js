@@ -584,6 +584,27 @@ export class World {
     pb.head = clamp(pb.head + ticks, 0, pb.rec.length - 1);
     pb.playing = false;
   }
+  /** Start (or move) an echo at an exact tick: play from there, or hold it frozen on that frame. Works on stored recordings. */
+  playFrom(slot, tick, { frozen = false, mode = null, rate = null } = {}) {
+    const pb = this.playbacks[slot] ?? (this.recordings[slot] && (this.playbacks[slot] = new Playback(slot, this.recordings[slot])));
+    if (!pb) return false;
+    if (mode && this.caps.modes.includes(mode)) pb.mode = mode;
+    if (rate) pb.rate = rate;
+    if (!this.caps.modes.includes(pb.mode)) pb.mode = 'once';
+    if (!pb.active) { pb.active = true; pb.coherence = 1; pb.age = 0; }
+    pb.head = clamp(Math.floor(tick), 0, pb.rec.length - 1); pb.playing = !frozen;
+    this.applyEchoStates(); this.refreshDerived?.();
+    this.emit(frozen ? 'freeze' : 'play', { slot, tick: pb.head });
+    return true;
+  }
+  /** Move an echo's head by exactly `ticks` (default one tick) and hold it there. */
+  stepHead(slot, ticks = 1) {
+    const pb = this.playbacks[slot]; if (!pb) return false;
+    if (!pb.active) { pb.active = true; pb.coherence = 1; pb.age = 0; pb.head = 0; }
+    pb.head = clamp(Math.floor(pb.head) + ticks, 0, pb.rec.length - 1); pb.playing = false;
+    this.applyEchoStates(); this.refreshDerived?.();
+    return true;
+  }
   setHead(slot, head) {
     const pb = this.playbacks[slot]; if (!pb) return;
     if (!pb.active) { pb.active = true; pb.coherence = 1; pb.age = 0; }

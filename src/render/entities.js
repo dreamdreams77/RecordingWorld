@@ -434,7 +434,7 @@ export class EntityViews {
         const age = L.age ?? 0;
         const rv = Math.min(1, age / 36);
         const slot = L.layer - 1, pb = world.playbacks[slot];
-        v.root.traverse((o) => { if (o.material?.userData?.u) { const uu = o.material.userData.u; uu.uReveal.value = rv; uu.uCoherence.value = pb ? pb.coherence : 1; } });
+        v.root.traverse((o) => { if (o.material?.userData?.u) { const uu = o.material.userData.u; uu.uReveal.value = rv; uu.uCoherence.value = pb ? pb.coherence : 1; uu.uFrozen.value = pb && pb.active && !pb.playing ? 1 : 0; uu.uRev.value = pb && pb.rate < 0 ? 1 : 0; uu.uSlow.value = pb && Math.abs(pb.rate) < 1 ? 1 : 0; uu.uSolo.value = pb && pb.muted.size > 0 && pb.muted.size === pb.rec.tracks.size - 1 ? 1 : 0; } });
         // conflict tint if this id is involved in a displacing/overlap conflict
         v.root.visible = true;
       }

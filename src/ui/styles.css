@@ -163,3 +163,46 @@ body.touch #feed { bottom: 74px; width: min(330px, 46vw); }
 @keyframes trule { 0% { transform: scaleX(0); } 30% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .titlecard .tc-rule { animation: none; } }
 body.reduced .titlecard .tc-rule { animation: none; }
+
+/* ---- verb washes: every action of the instrument has its own colour at the edge of the view ---- */
+.wash { position: fixed; inset: 0; z-index: 12; pointer-events: none; opacity: 0; animation: washin .85s ease-out forwards; }
+.wash.play, .wash.forward, .wash.mode { --c: 232,200,138; } .wash.reverse { --c: 224,148,74; } .wash.slow { --c: 157,180,200; } .wash.fast { --c: 220,220,232; } .wash.loop { --c: 240,216,144; }
+.wash.freeze { --c: 242,248,255; } .wash.thaw { --c: 188,216,240; } .wash.omit, .wash.unomit { --c: 140,106,142; } .wash.solo { --c: 255,230,168; }
+.wash { background: radial-gradient(ellipse at center, rgba(var(--c), 0) 52%, rgba(var(--c), .34) 100%); }
+.wash.freeze { background: radial-gradient(ellipse at center, rgba(var(--c), .05) 40%, rgba(var(--c), .42) 100%); }
+.wash.reverse { background: radial-gradient(ellipse at center, rgba(var(--c), 0) 30%, rgba(var(--c), .3) 100%); animation-direction: normal; }
+@keyframes washin { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---- the reel: the instrument's timeline ---- */
+.reel { position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%); z-index: 36; width: min(780px, calc(100vw - 16px)); padding: 7px 10px 8px; background: linear-gradient(180deg, rgba(14,15,19,.82), rgba(8,9,12,.9)); border: 1px solid rgba(232,200,138,.28); border-top-color: var(--hue, #ffa94d); box-shadow: 0 -10px 40px -18px var(--hue, #ffa94d), 0 6px 30px rgba(0,0,0,.5); font-family: var(--mono); font-size: 11px; color: var(--text); transition: opacity .28s ease, transform .28s ease; backdrop-filter: blur(4px); touch-action: none; user-select: none; -webkit-user-select: none; }
+.reel.closed { opacity: 0; transform: translateX(-50%) translateY(14px); pointer-events: none; }
+.reel.recording { border-top-color: #ff6a4a; box-shadow: 0 -10px 40px -18px #ff6a4a, 0 6px 30px rgba(0,0,0,.5); }
+.rl-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; }
+.rl-pill { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #111; font-weight: 700; font-size: 11px; flex: none; }
+.reel.recording .rl-pill { background: #ff6a4a !important; }
+.rl-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.rl-chips { display: inline-flex; gap: 5px; flex: none; }
+.rl-chips .c { font-style: normal; padding: 1px 6px; border: 1px solid rgba(255,255,255,.25); border-radius: 9px; font-size: 10px; letter-spacing: .04em; color: var(--text); }
+.rl-chips .c.dim { color: var(--dim); border-color: rgba(255,255,255,.12); }
+.rl-chips .c.pv { color: #f2d58a; border-color: #f2d58a; } .rl-chips .c.rv { color: #e0944a; border-color: #e0944a; } .rl-chips .c.ice { color: #dff0ff; border-color: #bfe0ff; background: rgba(190,225,255,.12); }
+.rl-chips .c.sl { color: #9db4c8; border-color: #9db4c8; } .rl-chips .c.lp { color: #f0d890; border-color: #f0d890; } .rl-chips .c.om { color: #c9a0cb; border-color: #8c6a8e; } .rl-chips .c.rec { color: #ff8a6a; border-color: #ff6a4a; animation: recblink 1s steps(2) infinite; }
+@keyframes recblink { 50% { opacity: .35; } }
+.rl-read { margin-left: auto; color: var(--dim); } .rl-read b { color: var(--text); font-weight: 600; }
+.rl-cv { display: block; width: 100%; background: rgba(0,0,0,.35); cursor: ew-resize; touch-action: none; }
+.rl-say { margin-top: 5px; min-height: 15px; color: var(--dim); line-height: 1.45; } .rl-say b { color: var(--text); font-weight: 600; }
+.rl-say kbd { border: 1px solid rgba(255,255,255,.28); border-radius: 3px; padding: 0 4px; font-size: 10px; color: var(--text); font-family: var(--mono); }
+.rl-bar { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.rl-b { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 40px; height: 36px; padding: 0 10px; background: rgba(255,255,255,.05); border: 1px solid rgba(232,200,138,.38); color: var(--gold, #e8c88a); font: 600 11px var(--mono); letter-spacing: .05em; border-radius: 6px; cursor: pointer; touch-action: none; }
+.rl-b small { font-size: 9px; opacity: .55; font-weight: 400; letter-spacing: 0; }
+.rl-b.main { min-width: 96px; } .rl-b.ice { border-color: rgba(190,225,255,.6); color: #cfe8ff; }
+.rl-b.on { background: rgba(232,200,138,.28); color: #fff; }
+/* the deck steps aside while the reel is open, and shrinks to chips while exploring */
+#deck .slot canvas, #deck .slot .coh { transition: opacity .25s; }
+#deck.compact .slot canvas { display: none; } #deck.compact .slot { width: 112px; padding: 4px 7px 5px; } #deck.compact .slot .nm { max-width: 62px; }
+body.touch .reel { bottom: auto; top: calc(8px + env(safe-area-inset-top)); left: auto; right: calc(8px + env(safe-area-inset-right)); transform: none; width: min(600px, calc(100vw - 372px)); }
+body.touch .reel.closed { transform: translateY(-10px); }
+body.touch .reel .rl-say { display: none; }
+@media (orientation: portrait) { body.touch .reel { top: calc(132px + env(safe-area-inset-top)); right: auto; left: 50%; transform: translateX(-50%); width: calc(100vw - 16px); } body.touch .reel.closed { transform: translateX(-50%) translateY(-10px); } }
+@media (max-width: 700px) { .rl-b.main { min-width: 78px; } .rl-b { padding: 0 7px; } }
+body.reel-open #feed { bottom: 336px; }
+body.touch.reel-open #feed { bottom: 74px; }

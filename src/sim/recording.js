@@ -5,6 +5,23 @@
 
 import { typeOf } from './types.js';
 
+const MARK_KIND = { plate: 'plate', lever: 'switch', slider: 'door', descender: 'door', gate: 'logic', resonator: 'sound', carillon: 'sound', sensor: 'light', watcher: 'eye', flywheel: 'machine', conveyor: 'machine', crumble: 'wear', pane: 'glass' };
+const MARK_W = { plate: 0.9, lever: 0.9, slider: 0.8, descender: 0.8, resonator: 0.9, watcher: 0.9, pane: 0.9, gate: 0.6 };
+function verb(name, up) {
+  switch (name) {
+    case 'plate': return up ? 'pressed' : 'released';
+    case 'lever': return up ? 'thrown on' : 'thrown off';
+    case 'slider': case 'descender': return up ? 'opens' : 'closes';
+    case 'resonator': return up ? 'hears its note' : 'falls silent';
+    case 'watcher': return up ? 'sees someone' : 'sees no one';
+    case 'sensor': return up ? 'lit' : 'dark';
+    case 'gate': return up ? 'fires' : 'resets';
+    case 'flywheel': case 'conveyor': return up ? 'runs' : 'stops';
+    case 'pane': return up ? 'rings' : 'quiet';
+    default: return up ? 'on' : 'off';
+  }
+}
+
 export const PLAYBACK_MODES = ['once', 'loop', 'pingpong', 'hold'];
 
 export class Track {
@@ -79,6 +96,59 @@ export class Recording {
     let mx = 1; for (const a of act) mx = Math.max(mx, a);
     for (let i = 0; i < bins; i++) act[i] /= mx;
     this.activity = act;
+    this._markers = null; // derived lazily from the frozen tracks; never stored, so saves are unchanged
+    this._scratch = null;
+  }
+  /**
+   * Significant moments, derived deterministically from the stored keyframes: switches changing state, doors and
+   * bridges starting to move, things entering/leaving the volume, notes being sung, and bodies setting off.
+   * Returns [{t, id, kind, label, dir, w}] sorted by tick (w = 0..1 prominence).
+   */
+  get markers() {
+    if (this._markers) return this._markers;
+    const out = [], L = this.length;
+    for (const tr of this.tracks.values()) {
+      const T = typeOf(tr.def), name = T.name, s = tr.stride, k = T.keyCh;
+      const id = tr.id.replace(/^[a-z]+_/, '');
+      let prevIn = null, prevV = null, quietSince = -1e9, moving = false, lastTone = 0;
+      for (let i = 0; i < tr.ticks.length; i++) {
+        const t = tr.ticks[i], o = i * s, inside = tr.vals[o] === 1;
+        if (prevIn !== null && inside !== prevIn && (name === 'player' || name === 'crate')) out.push({ t, id: tr.id, kind: inside ? 'enter' : 'leave', label: `${name === 'player' ? 'a Recollector' : tr.id} ${inside ? 'enters' : 'leaves'}`, dir: inside ? 1 : -1, w: 0.55 });
+        prevIn = inside;
+        if (!inside) { prevV = null; continue; }
+        if (name === 'player') {
+          const tone = tr.vals[o + 1 + 8]; // sung note
+          if (tone > 0 && lastTone === 0) out.push({ t, id: tr.id, kind: 'note', label: 'a note is sung', dir: 1, w: 0.7 });
+          lastTone = tone;
+          const jump = tr.vals[o + 1 + 4] > 4 && (prevV ? prevV[4] <= 4 : true) ? 1 : 0;
+          if (jump) out.push({ t, id: tr.id, kind: 'jump', label: 'a jump', dir: 1, w: 0.3 });
+          prevV = [0, 0, 0, 0, tr.vals[o + 1 + 4]];
+        } else if (name === 'crate') {
+          const sp = Math.abs(tr.vals[o + 1 + 3]) + Math.abs(tr.vals[o + 1 + 5]);
+          if (sp > 0.3 && t - quietSince > 20 && !moving) { out.push({ t, id: tr.id, kind: 'move', label: `${tr.id} is pushed`, dir: 1, w: 0.5 }); moving = true; }
+          if (sp < 0.05) { moving = false; quietSince = t; }
+        } else if (k >= 0) {
+          const v = tr.vals[o + 1 + k], pv = prevV ? prevV[0] : null;
+          if (pv !== null) {
+            const up = pv < 0.5 && v >= 0.5, dn = pv >= 0.5 && v < 0.5;
+            if (up || dn) out.push({ t, id: tr.id, kind: MARK_KIND[name] ?? 'state', label: `${id} ${verb(name, up)}`, dir: up ? 1 : -1, w: MARK_W[name] ?? 0.6 });
+          } else if (name !== 'slider' && name !== 'descender' && v >= 0.5 && t > 0) out.push({ t, id: tr.id, kind: MARK_KIND[name] ?? 'state', label: `${id} ${verb(name, true)}`, dir: 1, w: MARK_W[name] ?? 0.6 });
+          prevV = [v];
+        }
+      }
+    }
+    out.sort((a, b) => a.t - b.t || (a.id < b.id ? -1 : 1));
+    return (this._markers = out.filter((m) => m.t >= 0 && m.t < Math.max(1, L)));
+  }
+  /**
+   * Samples every track at `tau` into reusable scratch buffers (no allocation after the first call) and returns the
+   * live entries [{id, def, st, type}] — the "preview" of a moment, without touching or copying any world.
+   */
+  sampleAll(tau, muted = null) {
+    if (!this._scratch) this._scratch = [...this.tracks.values()].map((tr) => ({ id: tr.id, def: tr.def, type: typeOf(tr.def), tr, st: new Float64Array(tr.nch), alive: false }));
+    const t = Math.max(0, Math.min(this.length - 1, Math.floor(tau)));
+    for (const e of this._scratch) e.alive = !(muted && muted.has(e.id)) && e.tr.sample(t, e.st);
+    return this._scratch;
   }
   toJSON() {
     return {

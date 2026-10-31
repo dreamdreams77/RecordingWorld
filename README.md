@@ -67,3 +67,7 @@ The earlier 2D prototype is preserved in `legacy-2d/`. License: MIT.
 
 ## Playing on a phone or tablet
 Touch devices get on-screen controls automatically (no keyboard or pointer lock needed): left thumb = move stick, right thumb = look (a quick tap is a click: pin the frame / place), buttons for FRAME (Q), REC (R), USE (E), PLAY (T), JUMP, plus a slot selector, rewind, pause, `⋯` (stop, mode, reverse, scrub, frame size, unpin, lens) and `♪` (the seven voice notes). Phones default to the Low graphics preset; landscape is recommended. Verified with an emulated Android phone and real touch events (`node e2e/touch.mjs`); it has not been tried on physical hardware, so please report device-specific problems.
+
+
+## The Recollector's instrument
+Recording is a physical act and so is playing it back. Select a slot and scrub: the **reel** shows a lane for every recorded object with its events marked, and a **ghost** in the world shows where everything will be at that moment before you commit. `,` `.` move one tick; `;` `'` jump between events; **T** plays from the moment you are looking at; **F** freezes it there; **G** reverses; `[` `]` slow/speed up; **O** / **Shift+O** leave an object out of the echo or replay only it. Hold **Ctrl** and move the mouse to drag through history. On touch, tap ⏱ to open the reel and drag it with a finger. Each of these has its own sound and visual signature, and the echoes themselves look frozen, reversed or slowed. Verified in the sim tests and with real browser input (`node e2e/reel.mjs`, `node e2e/touch.mjs`).

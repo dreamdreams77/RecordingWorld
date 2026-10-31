@@ -40,6 +40,9 @@ export class HUD {
     this.liveEnergy = [];
   }
 
+  /** Compact deck while exploring: just the chips; the reel above takes over when the instrument is being used. */
+  setCompact(on) { if (on !== this._compact) { this._compact = on; this.deck.classList.toggle('compact', on); } }
+
   buildDeck(n) {
     this.deck.innerHTML = ''; this.slots = [];
     for (let i = 0; i < n; i++) {
@@ -83,6 +86,11 @@ export class HUD {
     c.innerHTML = `<div class="tc-num">${level.index ? ROMAN[level.index] : '∞'}</div><div class="tc-rule"></div><div class="tc-ttl">${level.title}</div><div class="tc-sub">${level.subtitle ?? ''}</div>`;
     this.layer.parentElement.appendChild(c);
     setTimeout(() => c.remove(), 5200);
+  }
+  /** A colour at the edge of the view for each verb (suppressed under reduced flashing). */
+  wash(kind) {
+    if (document.body.classList.contains('reduced')) return;
+    const e = el('div', `wash ${kind}`); this.layer.parentElement.appendChild(e); setTimeout(() => e.remove(), 900);
   }
   flash(a = 0.25) { this.flashEl.style.transition = 'none'; this.flashEl.style.opacity = a; requestAnimationFrame(() => { this.flashEl.style.transition = 'opacity .6s'; this.flashEl.style.opacity = 0; }); }
   cinema(on) { document.body.classList.toggle('cinema', on); }
@@ -149,9 +157,9 @@ export class HUD {
     // playhead
     const px = (pb.head / Math.max(1, rec.length - 1)) * W;
     if (pb.active) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(px - 1, 0, 2, H); g.fillStyle = hue; g.globalAlpha = 0.14; g.fillRect(0, 0, px, H); g.globalAlpha = 1; }
-    S.state.textContent = pb.active ? (pb.playing ? (pb.rate < 0 ? '◀ play' : '▶ play') : '❄ frozen') : (rec.source === 'archive' ? '▤ tape' : '■ ready');
+    S.state.textContent = pb.active ? (pb.playing ? (pb.rate < 0 ? '◀ reverse' : '▶ play') : '❄ frozen') : (rec.source === 'archive' ? '▤ tape' : '■ ready');
     S.state.className = 'state' + (pb.active ? ' on' : '');
-    S.mode.textContent = `${pb.mode}${Math.abs(pb.rate) !== 1 ? ` ×${Math.abs(pb.rate)}` : ''}${pb.muted.size ? ` · ${rec.tracks.size - pb.muted.size}/${rec.tracks.size}` : ''}`;
+    S.mode.textContent = `${pb.mode}${Math.abs(pb.rate) !== 1 ? ` ×${Math.abs(pb.rate)}` : ''}${pb.muted.size ? (pb.muted.size === rec.tracks.size - 1 ? ' · ◉ solo' : ` · ⊘ ${pb.muted.size}`) : ''}${pb.mode === 'loop' ? ' ↻' : ''}`;
     S.time.textContent = `${secs(pb.head)}/${secs(rec.length)}`;
     S.coh.style.width = `${(pb.active ? pb.coherence : 1) * 100}%`;
     S.coh.style.background = pb.coherence < 0.4 ? '#ff4df0' : hue;
