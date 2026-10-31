@@ -6,7 +6,7 @@ const p = await b.newPage(); const errs = []; p.on('pageerror', (e) => errs.push
 await p.goto('http://localhost:4173/?audio=0&quality=low');
 await p.waitForFunction(() => window.__game?.state === 'title', null, { timeout: 90000 });
 const rows = await p.evaluate(async () => {
-  const AE = window.__game.audio.constructor, names = ['rec-start', 'rec-stop', 'play', 'stop', 'select', 'pin', 'tape', 'rewind', 'end', 'reverse', 'forward', 'slow', 'fast', 'loop', 'freeze', 'thaw', 'omit', 'unomit', 'solo', 'preview', 'marker', 'scrub'];
+  const AE = window.__game.audio.constructor, names = ['rec-start', 'rec-stop', 'play', 'stop', 'select', 'pin', 'tape', 'rewind', 'end', 'reverse', 'forward', 'slow', 'fast', 'loop', 'freeze', 'thaw', 'omit', 'unomit', 'solo', 'preview', 'lever', 'section', 'upgrade', 'discovery', 'shock', 'collapse', 'canon', 'complete', 'marker', 'scrub'];
   const SR = 44100, out = [];
   const SCALE = [146.83, 174.61, 196, 220, 261.63, 293.66, 349.23, 392, 440, 523.25, 587.33, 698.46, 783.99, 880, 1046.5, 1174.66];
   for (const n of names) {

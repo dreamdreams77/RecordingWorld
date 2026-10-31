@@ -7,7 +7,7 @@ const onScale = (f) => NOTES.some((n) => Math.abs(1200 * Math.log2(f / n)) < 5);
 const all = () => Object.entries(CUES).map(([n, c]) => [n, typeof c === 'function' ? c(0.5) : c]);
 
 test('every instrument verb has a cue', () => {
-  for (const n of ['rec-start', 'rec-stop', 'play', 'stop', 'select', 'pin', 'tape', 'rewind', 'end', 'reverse', 'forward', 'slow', 'fast', 'loop', 'freeze', 'thaw', 'omit', 'unomit', 'solo', 'preview', 'marker', 'scrub']) assert.ok(cueFor(n, 0.5)?.length, `missing cue: ${n}`);
+  for (const n of ['rec-start', 'rec-stop', 'play', 'stop', 'select', 'pin', 'tape', 'rewind', 'end', 'reverse', 'forward', 'slow', 'fast', 'loop', 'freeze', 'thaw', 'omit', 'unomit', 'solo', 'preview', 'marker', 'scrub', 'lever', 'section', 'upgrade', 'discovery', 'shock', 'collapse', 'canon', 'complete']) assert.ok(cueFor(n, 0.5)?.length, `missing cue: ${n}`);
 });
 test('one timbre: tones are sine or triangle only, noise is only band-passed hiss', () => {
   for (const [n, c] of all()) for (const e of c) {

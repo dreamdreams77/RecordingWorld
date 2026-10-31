@@ -71,7 +71,7 @@ export class AudioEngine {
     this.bus.sfx.gain.setTargetAtTime(s.sfx, t, 0.05); this.bus.amb.gain.setTargetAtTime(s.ambience, t, 0.05);
     this.bus.music.gain.setTargetAtTime(s.music, t, 0.05); this.bus.voice.gain.setTargetAtTime(s.voice, t, 0.05);
   }
-  suspend(flag) { if (!this.ready) return; flag ? this.ctx.suspend() : this.ctx.resume(); }
+  suspend(flag) { this.paused = !!flag; if (!this.ready) return; flag ? this.ctx.suspend() : this.ctx.resume(); }
 
   // ---------------------------------------------------------------- level ambience
   loadLevel(level) {
@@ -286,22 +286,12 @@ export class AudioEngine {
     }
   }
   event(name, arg = 0) {
-    if (!this.ready) return;
+    if (!this.ready || this.ctx.state === 'closed') return;
+    if (this.paused) return; // paused: cues would queue up and fire in a burst on resume
     const cue = cueFor(name, arg);
     if (cue) {
       if (name === 'scrub') { const now = performance.now(); if (now - (this._scrubAt ?? 0) < 38) return; this._scrubAt = now; }
       this.playCue(cue, name); return;
-    }
-    switch (name) {
-      case 'lever': this.noiseTick(300, 0.12, 0.5, 0.8); this.blip(90, 0.15, 0.35, 'sine', 'sfx', 50); break;
-      case 'section': [392, 523.25, 659.25].forEach((f, i) => setTimeout(() => this.blip(f, 0.9, 0.09, 'sine', 'music'), i * 140)); break;
-      case 'upgrade': [330, 440, 587, 880].forEach((f, i) => setTimeout(() => this.blip(f, 0.7, 0.1, 'triangle', 'music'), i * 110)); break;
-      case 'discovery': [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => this.blip(f, 1.4, 0.08, 'sine', 'music'), i * 90)); break;
-      case 'shock': this.noiseTick(150, 0.5, 0.8, 0.5); this.blip(60, 0.6, 0.4, 'sawtooth', 'sfx', 30); break;
-      case 'collapse': this.noiseTick(500, 0.9, 0.7, 0.4); this.blip(300, 0.9, 0.3, 'sawtooth', 'sfx', 40); break;
-      case 'canon': [196, 293.66, 392, 587.33].forEach((f, i) => setTimeout(() => this.blip(f, 2.4, 0.12, 'sine', 'music'), i * 160)); this.noiseTick(300, 0.8, 0.4, 0.5); break;
-      case 'complete': [261.63, 329.63, 392, 523.25, 659.25].forEach((f, i) => setTimeout(() => this.blip(f, 2.2, 0.1, 'sine', 'music'), i * 220)); break;
-      default:
     }
   }
 }

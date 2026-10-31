@@ -32,6 +32,15 @@ export const CUES = {
   omit: [T('G4', 0.2, 0.15, 0, 'G3', 'triangle'), H(320, 0.22, 0.22, 0, 0.8)],
   unomit: [T('G3', 0.2, 0.13, 0, 'G4', 'triangle')],
   solo: [T('A5', 1.4, 0.1), T('D6', 1.1, 0.07, 0.02), H(5000, 0.08, 0.1, 0, 4)],
+  // the world answering (previously hand-made one-offs; now the same voice, scale and tape as everything else)
+  lever: [H(320, 0.14, 0.2, 0, 0.8), T('D3', 0.2, 0.12, 0.02, 'A3')],
+  section: [T('G4', 0.9, 0.09), T('C5', 0.9, 0.09, 0.14), T('D5', 0.9, 0.09, 0.28)],
+  upgrade: [T('F4', 0.7, 0.07), T('A4', 0.7, 0.07, 0.11), T('D5', 0.7, 0.07, 0.22), T('A5', 0.7, 0.06, 0.33)],
+  discovery: [T('G5', 1.4, 0.08), T('A5', 1.4, 0.08, 0.09), T('D6', 1.4, 0.07, 0.18), T('F5', 1.4, 0.06, 0.27)],
+  shock: [H(300, 0.5, 0.2, 0, 0.6), T('D3', 0.6, 0.14, 0, null, 'triangle')],
+  collapse: [H(500, 0.9, 0.2, 0, 0.6), T('A4', 0.9, 0.12, 0, 'D3', 'triangle')],
+  canon: [T('G3', 2.2, 0.07), T('D4', 2.2, 0.07, 0.16), T('G4', 2.2, 0.07, 0.32), T('D5', 2.2, 0.065, 0.48), H(300, 0.8, 0.12, 0, 0.6)],
+  complete: [T('D4', 2.2, 0.07), T('F4', 2.2, 0.07, 0.22), T('A4', 2.2, 0.07, 0.44), T('D5', 2.2, 0.07, 0.66)],
   // looking around inside a recording
   preview: [T('D5', 0.05, 0.07)],
   marker: [T('A5', 0.09, 0.09), T('D6', 0.11, 0.06, 0.03)],
@@ -42,4 +51,4 @@ export const cueFor = (name, arg) => { const c = CUES[name]; return typeof c ===
 /** White tape hiss at nominal level; the band-pass takes most of its energy away, so cue levels are calibrated by measurement (see LEVEL). */
 export const HISS_GAIN = 1;
 /** Per-cue level calibration, measured by rendering each cue offline through the real tape bus (e2e/audio.mjs) so that the loudest moment of every tonal cue lands within a few dB of the others. */
-export const LEVEL = {"rec-start":0.7,"rec-stop":0.77,"play":0.86,"stop":1.27,"select":2.4,"pin":1.5,"tape":1.23,"rewind":0.92,"end":2.37,"reverse":0.92,"forward":1.17,"slow":0.56,"fast":1.5,"loop":1,"freeze":0.52,"thaw":1.95,"omit":2.19,"unomit":2.34,"solo":0.54,"preview":1.71,"marker":1.07,"scrub":3.16};
+export const LEVEL = {"rec-start":0.7,"rec-stop":0.77,"play":0.86,"stop":1.27,"select":2.4,"pin":1.5,"tape":1.23,"rewind":0.92,"end":2.37,"reverse":0.92,"forward":1.17,"slow":0.56,"fast":1.5,"loop":1,"freeze":0.52,"thaw":1.95,"omit":2.19,"unomit":2.34,"solo":0.54,"preview":1.71,"marker":1.07,"scrub":3.16,"lever":1.45,"section":0.58,"upgrade":0.71,"discovery":0.43,"shock":1.06,"collapse":0.89,"canon":0.46,"complete":0.5};
