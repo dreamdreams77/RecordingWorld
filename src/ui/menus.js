@@ -168,10 +168,12 @@ export class Menus {
     m.appendChild(el('h2', '', 'Graphics'));
     row('Quality preset', select('quality', Object.entries(QUALITY).map(([k, q]) => [k, q.label]), () => g.applyQuality(S.quality)));
     row('Field of view', slider('fov', 60, 110, 1, (v) => `${v.toFixed(0)}°`));
+    row('Adaptive resolution (keeps the frame rate steady)', check('adaptiveRes'));
     m.appendChild(el('h2', '', 'Audio'));
     row('Master', slider('master', 0, 1, 0.01)); row('Effects', slider('sfx', 0, 1, 0.01)); row('Ambience', slider('ambience', 0, 1, 0.01)); row('Music & chimes', slider('music', 0, 1, 0.01)); row('Voice (Recollector)', slider('voice', 0, 1, 0.01));
     m.appendChild(el('h2', '', 'Controls'));
     row('Mouse sensitivity', slider('sensitivity', 0.2, 3, 0.05)); row('Invert Y', check('invertY'));
+    row('Interface', select('hudMode', [['minimal', 'Minimal — shows what the moment needs'], ['full', 'Full — everything, always']], () => g.applySettings()));
     m.appendChild(el('h2', '', 'Accessibility'));
     row('Reduced motion (no head bob, calmer post-processing)', check('reducedMotion', () => { S.headBob = !S.reducedMotion; }));
     row('Head bob', check('headBob')); row('High contrast', check('highContrast'));

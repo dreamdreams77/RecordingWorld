@@ -3,7 +3,7 @@
 // sung…) marked where they happened. It opens while recording or handling an echo and falls away while exploring.
 // Touch and an un-locked mouse drag it directly; with the mouse locked, Ctrl + mouse move is the jog wheel.
 
-const HUES = ['#ffa94d', '#62e0b4', '#ff6459', '#b7a0ff', '#d5f25c', '#ffc2d4'];
+import { FILM_HEX as HUES } from '../palette.js';
 const KIND = {
   plate: ['#f0c070', '▼'], switch: ['#e8d8a8', '◆'], door: ['#9fc8e8', '▮'], logic: ['#b8a8d8', '◇'], sound: ['#8fe0c8', '♪'], note: ['#8fe0c8', '♪'],
   light: ['#ffe9a0', '✦'], eye: ['#ff8a70', '◉'], machine: ['#d8a070', '⚙'], wear: ['#c0b090', '▫'], glass: ['#bfe4ff', '✧'], enter: ['#ffffff', '▸'], leave: ['#a0a0a0', '◂'],

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 — silver and amber
+* **Film identity.** One palette (`src/palette.js`) for everything that belongs to a recording — echoes, ghost, trails, reel, deck, frame: amber, cold silver, copper, pale gold, sage silver, faded rose. Echoes are now silver gelatin with amber at the edges and in the highlights, a 24 fps flicker and a hair of gate weave; the present is graded cool so the two read as different materials.
+* **Atmosphere.** Height-dependent fog (air pools near the floor, thins with altitude) and a slow low mist in every chapter, under each chapter's own set piece.
+* **Minimal contextual HUD (default; "Full" is one setting away).** The objective appears for a few seconds at each section and returns when you press H or stall; the key legend appears when you pause; the deck appears once a recording exists; the tick readout is dev-only; the range readout appears only when you aim at something; at most two toasts at once. Everything else is the world.
+* **Adaptive resolution.** A governor (`src/render/adaptive.js`) lowers the render scale in 10% steps under sustained slowness (floor 50%), restores it in 5% steps with hysteresis, ignores load hitches, and is off with one setting. Unit-tested; verified in a real browser (canvas backing store 640 → 466 px, restored when disabled).
+* **Instrument voice.** All instrument sounds are one voice: sine/triangle tones on a D-minor pentatonic scale, white tape hiss, a shared tape bus; levels calibrated by offline render.
+* **Validation fixes.** Ghost redesigned for legibility (world-width two-tone edges, silhouette, feet ring, state labels, x-ray for yourself); reel moved to the top; adaptive small-screen layouts; marker clustering; `testNoRender` now skips gameplay frames in tests.
+
 ## 1.4.0 — the instrument
 * **The reel:** a timeline that is not a video scrubber. Each recorded object has a lane showing when it was inside the volume and when its state changed; the significant moments (a plate pressed or released, a door opening, a note sung, an Eye seeing someone, a crate pushed, something entering or leaving) are marked where they happened and described in words ("Now: plateA pressed · next: plateA released in 0.35 s"). It opens while recording or handling an echo and falls away to a row of chips while exploring.
 * **Preview before committing:** scrub to any moment of a stored recording and a **ghost** appears in the real 3D scene — outlines of every recorded object, brighter for the ones that will change the world (a door that will be open, a plate that will be down). Then play from there (T) or freeze there (F). The ghost samples the stored tracks into scratch buffers: no world copy, no extra entity views, ~0.003 ms per frame.

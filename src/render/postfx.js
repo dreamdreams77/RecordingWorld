@@ -78,7 +78,7 @@ export class PostFX {
     this.composer.addPass(this.grade);
     this.composer.addPass(new OutputPass());
   }
-  resize(w, h) { this.composer.setSize(w, h); }
+  resize(w, h) { this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h); }
   render(dt, params) {
     const u = this.grade.uniforms;
     u.uTime.value = params.time; u.uInterference.value = params.interference; u.uFlash.value = params.flash;

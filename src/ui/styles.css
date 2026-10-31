@@ -1,7 +1,7 @@
 :root {
   --ink: #07090c; --glass: rgba(9, 11, 14, 0.74); --line: rgba(232, 200, 138, 0.38); --line-hi: #e8c88a;
   --text: #dfe8e2; --dim: #8d9890; --amber: #ffb04d; --warn: #ff4df0; --ok: #7fffd0; --gold: #ffd36a;
-  --s1: #ffa94d; --s2: #62e0b4; --s3: #ff6459; --s4: #b7a0ff; --s5: #d5f25c; --s6: #ffc2d4;
+  --s1: #e9a84f; --s2: #b9c7d6; --s3: #d98a6a; --s4: #efd9a0; --s5: #b8c4a8; --s6: #c4a8b8;
   --mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
   --ui: 1;
@@ -226,3 +226,9 @@ body.touch .reel { width: min(560px, calc(100vw - 372px)); }
 @media (orientation: portrait) { body.touch #feed, body.touch.reel-open #feed { bottom: 66px !important; width: min(300px, 60vw); } body.touch .reel { width: calc(100vw - 16px); } }
 body.touch.reel-open #deck { display: none; }           /* on touch the reel names the slot; the chips would only crowd the view */
 body.touch #feed { width: min(260px, 38vw); }
+
+/* ---- minimal, contextual HUD: what the moment needs, nothing else ---- */
+#folio, #legend, #deck, #range, #aimlabel, #aimwhy { transition: opacity .6s ease; }
+#folio.faded, #legend.hushed, #deck.hidden { opacity: 0; pointer-events: none; }
+.hudlayer.min #reticle { opacity: .42; transition: opacity .25s, transform .25s; }
+.hudlayer.min.aiming #reticle { opacity: 1; }

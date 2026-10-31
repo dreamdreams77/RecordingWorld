@@ -137,7 +137,15 @@ const HEROES = {
   },
 };
 
+const MIST = { chamber: 0xcdd6e6, machine: 0xe6c8a8, absence: 0xd8c4b0, acoustic: 0xbad6d6, observatory: 0xc4d0ea, record: 0xe8d8bc };
 export function buildHero(theme, level, quality) {
-  const h = (HEROES[theme] ?? (() => null))(level, quality);
-  return h ?? { group: new THREE.Group(), update() {} };
+  const h = (HEROES[theme] ?? (() => null))(level, quality) ?? { group: new THREE.Group(), update() {} };
+  // every chapter: a low, slow mist drifting across the floor — the depth cue under the set piece
+  const B = levelBounds(level), rand = mulberry32(theme.length * 31 + 7), src = [];
+  for (let i = 0; i < 36; i++) src.push([B.x0 + rand() * (B.x1 - B.x0), 0.35, B.z0 + rand() * (B.z1 - B.z0)]);
+  const mist = new Plume(src, { count: scaleN(quality, 120), color: MIST[theme] ?? 0xd0d0d8, size: 7.5, rise: 0.04, spread: 5, life: 16, swirl: 0.12, opacity: 0.075 });
+  h.group.add(mist.points);
+  const inner = h.update;
+  h.update = (t, w, dt) => { inner(t, w, dt); mist.update(dt, t); };
+  return h;
 }

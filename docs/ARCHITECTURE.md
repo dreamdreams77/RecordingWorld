@@ -59,3 +59,11 @@ crackling "interference" voice.
 * **`Recording.markers`** (derived lazily from the frozen tracks, never stored) lists the significant moments; **`Recording.sampleAll(tau, muted)`** reads every track at a tick into reusable scratch buffers. The reel draws lanes and markers from the first; the ghost draws from the second.
 * **`src/ui/reel.js`** is the timeline: static layers (lanes, presence bars, keyframe ticks, markers) are cached per recording/mute-state/size; only the playhead, cursor and hover are drawn per frame. It handles pointer events itself (touch and an unlocked mouse); with the mouse locked, Ctrl + mouse movement is the jog wheel.
 * **`GhostFX`** (`src/render/fx.js`) draws pooled outlines for the sampled entries; entries whose state differs from the present glow. **`BurstFX`** and **`hud.wash`** give each verb a visual signature, **`AudioEngine.event`** a sonic one, and the echo shader takes `uFrozen/uRev/uSlow/uSolo` so echoes look like what is being done to them.
+
+
+## Look and feel (film identity, atmosphere, HUD, adaptive resolution)
+* **`src/palette.js`** is the single source for recording colours; `materials.js`, `fx.js`, the HUD deck and the reel all import it.
+* **Echo shader** (`materials.js › echo`): silver body, slot-coloured amber rim/halation, 24 fps flicker and vertex gate weave; `uFrozen/uRev/uSlow/uSolo` change its behaviour with what is being done to the echo.
+* **`atmosphere.js`** patches three's shared fog chunks once so fog density depends on world height; `heroes.js` adds a low mist to every chapter beneath its set piece.
+* **Minimal HUD** is a mode of the existing HUD (`hud.setMode`), driven by idle time (`Input.idleFor`), aim state and whether recordings exist — it hides things, it does not remove them, and the full HUD is one setting away.
+* **`adaptive.js`** is pure logic (frame times in, scale out); the renderer applies it by changing the pixel ratio and resizing the composer. Because it changes only presentation, it has no effect on the simulation.

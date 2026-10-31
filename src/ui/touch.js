@@ -7,6 +7,7 @@ const NOTES = [['KeyZ', 'C'], ['KeyX', 'D'], ['KeyC', 'E'], ['KeyV', 'F'], ['Key
 export class TouchControls {
   constructor(game) {
     this.g = game; this.I = game.input; this.shown = false;
+    for (const ev of ['pointerdown', 'pointermove']) addEventListener(ev, () => game.input.poke(), { passive: true, capture: true });
     const root = this.root = document.createElement('div');
     root.id = 'touch'; root.style.display = 'none';
     root.innerHTML = `

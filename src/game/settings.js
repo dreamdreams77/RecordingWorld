@@ -11,7 +11,7 @@ export const DEFAULT_SETTINGS = {
   quality: 'high', fov: 75, sensitivity: 1, invertY: false,
   master: 0.8, sfx: 1, ambience: 0.8, music: 0.7, voice: 1,
   reducedMotion: false, headBob: true, highContrast: false, colorblind: 0, flashReduction: false,
-  uiScale: 1, subtitles: true, hints: true, holdToTalk: true, devMode: false, autosave: true,
+  uiScale: 1, hudMode: 'minimal', adaptiveRes: true, subtitles: true, hints: true, holdToTalk: true, devMode: false, autosave: true,
 };
 
 const KEY = 'twiar.settings.v1';

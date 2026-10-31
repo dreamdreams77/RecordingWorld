@@ -12,6 +12,8 @@ import { makeSky, makeEnvironment } from './sky.js';
 import { buildScenery } from './scenery.js';
 import { dressArchitecture } from './dressing.js';
 import { buildHero } from './heroes.js';
+import { installHeightFog } from './atmosphere.js';
+import { AdaptiveRes } from './adaptive.js';
 import { QUALITY } from '../game/settings.js';
 import { EYE_HEIGHT } from '../sim/types.js';
 import { disposeTextures } from './textures.js';
@@ -19,6 +21,8 @@ import { disposeGeometryCache } from './materials.js';
 
 export class GameRenderer {
   constructor(canvas, settings) {
+    installHeightFog();
+    this.adapt = new AdaptiveRes({ min: 0.5 }); this.lastFrameAt = 0;
     this.canvas = canvas; this.settings = settings;
     this.q = { ...QUALITY[settings.quality] };
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
@@ -43,7 +47,8 @@ export class GameRenderer {
     this.settings.quality = name;
     this.q = { ...QUALITY[name] };
     const dpr = Math.min(window.devicePixelRatio || 1, this.q.pixelRatio);
-    this.renderer.setPixelRatio(dpr);
+    this.baseDpr = dpr; this.adapt?.reset();
+    this.renderer.setPixelRatio(dpr * (this.adapt?.scale ?? 1));
     this.renderer.shadowMap.enabled = this.q.shadows;
     if (this.world) this.rebuild();
     else this.resize();
@@ -182,6 +187,13 @@ export class GameRenderer {
    */
   render(fs) {
     const t0 = performance.now();
+    // adaptive resolution: the real time between rendered frames decides the render scale
+    if (this.lastFrameAt) {
+      this.adapt.enabled = !!this.settings.adaptiveRes;
+      this.adapt.sample(t0 - this.lastFrameAt); this.stats.scale = this.adapt.scale;
+      if (this.adapt.changed) { this.renderer.setPixelRatio((this.baseDpr ?? 1) * this.adapt.scale); this.resize(); }
+    }
+    this.lastFrameAt = t0;
     const { world, dt } = fs;
     this.clock += dt;
     this.lib.setTime(this.clock);

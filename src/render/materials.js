@@ -9,7 +9,8 @@
 import * as THREE from 'three';
 import { texture } from './textures.js';
 
-export const SLOT_HUES = [0xffa94d, 0x62e0b4, 0xff6459, 0xb7a0ff, 0xd5f25c, 0xffc2d4];
+import { FILM_INT } from '../palette.js';
+export const SLOT_HUES = FILM_INT;
 export const CONFLICT_COLOR = 0xff4df0;
 export const RECONCILED_COLOR = 0xffd36a;
 
@@ -93,7 +94,7 @@ export class MaterialLibrary {
   echo(base, slot) {
     const tint = new THREE.Color(SLOT_HUES[slot % SLOT_HUES.length]);
     const m = new THREE.MeshStandardMaterial({
-      color: tint.clone().multiplyScalar(0.34), roughness: 0.46, metalness: 0.35,
+      color: new THREE.Color(0.3, 0.31, 0.33), roughness: 0.46, metalness: 0.35, // silver gelatin; the slot's colour lives in the amber edge, not the body
       normalMap: base?.normalMap ?? null, normalScale: new THREE.Vector2(0.8, 0.8),
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
     });
@@ -106,8 +107,9 @@ export class MaterialLibrary {
     m.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, u);
       sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        .replace('#include <common>', '#include <common>\nvarying vec3 vWP; uniform float uTime, uSeed;')
+        // film gate weave: the whole image shivers by a hair, twenty-four times a second
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat gw = floor(uTime * 24.0); transformed.x += (fract(sin(gw * 12.9898 + uSeed) * 43758.5453) - 0.5) * 0.007; transformed.y += (fract(sin(gw * 78.233 + uSeed) * 12345.679) - 0.5) * 0.007;\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
 varying vec3 vWP;
@@ -135,17 +137,20 @@ float vn(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.-2.*f);
   float mo = sin((vWP.x + vWP.z) * 38.0 + uTime * 7.0) * sin(vWP.y * 33.0 - uTime * 3.0);
   vec3 tintE = mix(uTint, vec3(1.0, 0.62, 0.28), 0.45 * uRev);          // reverse runs warm
   float facet = step(0.62, vn(floor(vWP * 7.0) + uSeed)) * fres;          // frozen: faceted ice at the rim
-  totalEmissiveRadiance += tintE * (rimFront * 7.0 + band * 0.9 + fres * 1.2 + 0.04 + uSolo * (fres * 2.5 + 0.25));
+  totalEmissiveRadiance += tintE * (rimFront * 7.0 + band * 0.55 + fres * 1.5 + 0.02 + uSolo * (fres * 2.5 + 0.25));   // amber at the edges, not everywhere
   totalEmissiveRadiance += vec3(0.78, 0.9, 1.0) * uFrozen * (fres * 2.2 + facet * 3.0 + 0.1);
   totalEmissiveRadiance += vec3(1.0, 0.25, 0.9) * smoothstep(0.55, 1.0, mo) * uConflict * 3.0;`)
         .replace('#include <opaque_fragment>', `#include <opaque_fragment>
   float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
-  gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(lum) * uTint * 2.2 + uTint * 0.05, 0.62);
+  // silver gelatin: the body is monochrome silver; halation bleeds the slot's warm tone out of the highlights
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(lum) * vec3(0.93, 0.96, 1.0) * 2.1 + uTint * 0.03, 0.82);
+  gl_FragColor.rgb += uTint * smoothstep(0.5, 1.3, lum) * 0.32;
+  gl_FragColor.rgb *= 0.93 + 0.07 * h31(vec3(floor(uTime * 24.0), uSeed, 1.0)); // 24 fps flicker
   gl_FragColor.rgb *= 0.86 + 0.14 * step(0.5, fract(vWP.y * uSlice * 5.0));
   gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.82, 0.9, 0.98) * (0.35 + lum), 0.32 * uFrozen); // a frozen echo is pale and still
   gl_FragColor.rgb += (h31(vec3(gl_FragCoord.xy, floor(uTime * 24.0 * (1.0 - uFrozen)))) - 0.5) * 0.05;`);
     };
-    m.customProgramCacheKey = () => 'echo-v2';
+    m.customProgramCacheKey = () => 'echo-v3';
     return m;
   }
   setTime(t) { this.time.value = t; }

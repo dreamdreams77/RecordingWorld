@@ -13,10 +13,12 @@ const S = { witness: { lvl: 'ch6', at: [-1, 0, -129], yaw: -0.8, pitch: -0.1, vo
   ch2: { lvl: 'ch2', at: [0, 0, -2], yaw: 0.35, pitch: -0.1, vol: { x0: -9, x1: 9, y0: -1, y1: 6, z0: -26, z1: -2 }, from: [-3, 0, -9], press: ['btn1'], tick: 80 },
   stress: { lvl: 'ch1', at: [0, 0, -4], yaw: 0.56, pitch: -0.2, vol: { x0: -9, x1: 1, y0: -1, y1: 4, z0: -18, z1: -6 }, from: [-5, 0, -12], tick: 300, stress: true },
   ch1: { lvl: 'ch1', at: [0, 0, -4], yaw: 0.56, pitch: -0.2, vol: { x0: -9, x1: 1, y0: -1, y1: 4, z0: -18, z1: -6 }, from: [-5, 0, -12], tick: 50 } }[scene];
-S.echo = process.env.ECHO || null; if (S.echo) { S.at = [-4, 0, -8.5]; S.yaw = 0.278; S.pitch = -0.12; }
+S.echo = process.env.ECHO || null; S.explore = !!process.env.EXPLORE; S.full = !!process.env.FULL; if (S.echo) { S.at = [-4, 0, -8.5]; S.yaw = 0.278; S.pitch = -0.12; }
+if (process.env.CAM) { const [x, z, yaw, pitch = -0.1] = process.env.CAM.split(',').map(Number); S.at = [x, 0, z]; S.yaw = yaw; S.pitch = pitch; }
 await p.evaluate(async (S) => {
   const g = window.__game; await g.startLevel(S.lvl); g.menus.hide(); g.testHold = true; g.hud.layer.style.display = '';
   const w = g.world, IDLE = { mx: 0, mz: 0, jump: false, interact: false, tone: 0 };
+  if (S.explore) { g.settings.hudMode = S.full ? 'full' : 'minimal'; g.applySettings(); g.hud.folioT = -1e9; g.input.poke(); w.teleportPlayer(S.at, 0); g.testHold = false; g.selected = 0; g.yaw = S.yaw; g.pitch = S.pitch; g.cur.set(w.player.st); g.prev.set(w.player.st); return; }
   w.teleportPlayer(S.at, 0); w.startRecording(0, S.vol, 'memory');
   if (S.stress) { for (let k = 0; k < 120; k++) { w.teleportPlayer(S.from, 0); w.step(IDLE); w.step(IDLE); w.teleportPlayer([S.from[0] + 4, 0, S.from[2]], 0); w.step(IDLE); w.step(IDLE); } w.teleportPlayer(S.at, 0); w.stopRecording(); }
   else {

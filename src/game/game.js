@@ -19,7 +19,7 @@ import { loadProgress, saveProgress, levelRecord, saveSnapshot, loadSnapshot } f
 const NOTE_KEYS = ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM'];
 const NOTE_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const RATES = [0.25, 0.5, 1, 2, 4];
-const SLOT_HEX = [0xffa94d, 0x62e0b4, 0xff6459, 0xb7a0ff, 0xd5f25c, 0xffc2d4];
+import { FILM_INT as SLOT_HEX } from '../palette.js';
 
 export class Game {
   constructor(root, { audio = null, menus = null } = {}) {
@@ -60,6 +60,7 @@ export class Game {
     document.body.classList.toggle('hc', s.highContrast);
     document.body.classList.toggle('reduced', s.reducedMotion);
     this.audio?.applySettings(s);
+    this.hud?.setMode(s.hudMode);
     saveSettings(s);
   }
   onLock(locked) {
@@ -332,7 +333,7 @@ export class Game {
     if (I.hit('F3')) { this.dev = !this.dev; this.settings.devMode = this.dev; saveSettings(this.settings); }
     if (I.hit('F4')) { this.showTraj = !this.showTraj; this.showVolumes = this.showTraj; }
     if (I.hit('Tab')) this.lensFull = !this.lensFull;
-    if (I.hit('KeyH')) this.hud.showHint(!this.hud.q('#folio .hint').textContent);
+    if (I.hit('KeyH')) { this.hud.showHint(!this.hud.q('#folio .hint').textContent); this.hud.pingFolio(); }
     if (I.hit('F5')) this.quickSave();
     if (I.hit('KeyK')) { if (I.held('ShiftLeft', 'ShiftRight')) this.resetSection(); else this.restartSection(); }
     if (I.hit('F6')) this.rewind();
@@ -594,6 +595,7 @@ export class Game {
     const legend = this.legend(tone, tape);
     return {
       world: w, level: this.level, ui: { selected: this.selected }, time: this.renderer.clock, aimDist: hit.t, aimLabel, aimWhy, aimCompare: cmp, lensFull: this.lensFull,
+      idle: this.input.idleFor(), anyRec: w.recordings.some((r) => r), frameUi: this.frameMode || !!this.pinned,
       dev: this.dev, perf: { fps: this.fps, ...this.renderer.stats }, legend, sectionIndex: this.director.sectionIndex,
     };
   }

@@ -5,7 +5,7 @@
 import { forTouch } from './keys.js';
 import { PLAYBACK_MODES } from '../sim/recording.js';
 
-const HUES = ['#ffa94d', '#62e0b4', '#ff6459', '#b7a0ff', '#d5f25c', '#ffc2d4'];
+import { FILM_HEX as HUES } from '../palette.js';
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 const secs = (t) => (t / 60).toFixed(1).padStart(4, '0');
@@ -55,6 +55,7 @@ export class HUD {
   }
 
   setFolio(level, section) {
+    this.pingFolio();
     const f_ = this.q('#folio');
     f_.querySelector('.num').textContent = ROMAN[level.index] ?? '';
     this.q('#f-kicker').textContent = level.title;
@@ -69,7 +70,7 @@ export class HUD {
     text = forTouch(text);
     const t = el('div', `toast ${kind}`, (title ? `<b>${title}</b>` : '') + text);
     this.feed.appendChild(t);
-    while (this.feed.children.length > 5) this.feed.firstChild.remove();
+    while (this.feed.children.length > (this.mode === 'full' ? 5 : 2)) this.feed.firstChild.remove(); // minimal: never more than two at once
     setTimeout(() => t.remove(), ms);
   }
   say(text, who = 'THE ARCHIVIST', ms = 6500) {
@@ -96,10 +97,23 @@ export class HUD {
   cinema(on) { document.body.classList.toggle('cinema', on); }
 
   /** One call per rendered frame. `m` is the model assembled by the Game. */
+  setMode(mode) { this.mode = mode === 'full' ? 'full' : 'minimal'; this.layer.classList.toggle('min', this.mode === 'minimal'); }
+  /** Bring the objective back for a few seconds (new section, H, or a player who has stalled). */
+  pingFolio() { this.folioT = performance.now(); }
   update(m) {
     const { world, ui } = m;
+    // minimal mode: show what the moment needs and let everything else fall away
+    const min = this.mode !== 'full', now = performance.now();
+    if (this.mode === undefined) this.setMode('minimal');
+    const stalled = m.idle > 28 && !world.recorder;                                        // a player who has stopped: the objective returns
+    if (stalled && !this._stalled) this.pingFolio(); this._stalled = stalled;
+    this.q('#folio').classList.toggle('faded', min && now - (this.folioT ?? 0) > 9000 && !this.q('#folio .hint').textContent);
+    this.q('#legend').classList.toggle('hushed', min && m.idle < 10);                      // key reminders appear when you pause
+    this.deck.classList.toggle('hidden', min && !m.anyRec && !world.recorder);              // no recordings yet: no deck
+    this.q('#ticker').style.display = min && !m.dev ? 'none' : '';
+    this.layer.classList.toggle('aiming', !!m.aimLabel || m.frameUi);
     // reticle + rangefinder
-    this.q('#range').textContent = m.aimDist !== null ? `${m.aimDist.toFixed(2)} m` : '';
+    this.q('#range').textContent = m.aimDist !== null && (this.mode === 'full' || m.aimLabel || m.frameUi) ? `${m.aimDist.toFixed(2)} m` : '';
     this.q('#aimlabel').textContent = m.aimLabel ?? '';
     this.q('#aimwhy').textContent = m.aimWhy ?? '';
     this.q('#ret-ring').style.transform = `rotate(${(m.time * 20) % 360}deg)`;
@@ -108,7 +122,8 @@ export class HUD {
     this.q('#ticker').innerHTML = `TICK <b>${String(world.tick).padStart(6, '0')}</b> · 60 Hz<br>${secs(world.tick)} s · ${world.stats.solids} solids · ${world.conflicts.length ? `<span style="color:var(--warn)">${world.conflicts.length} conflict${world.conflicts.length > 1 ? 's' : ''}</span>` : 'reconciled'}`;
     // recording banner
     const rb = this.q('#recbar');
-    if (rec) {
+    if (rec && min) rb.style.display = 'none';           // the reel carries the recording read-out
+    else if (rec) {
       rb.style.display = 'block';
       this.q('#rec-t').textContent = ` REC ${ui.selected + 1} — ${secs(rec.tau)} / ${secs(rec.maxTicks)} s`;
       const v = rec.rec.volume;
@@ -192,7 +207,7 @@ export class HUD {
     lines.push(`items ${w.items.length}  alive ${w.aliveList.length}  solids ${w.solids.length}  beams ${w.beams.length}  sounds ${w.sources.length}`);
     lines.push(`conflicts ${w.conflicts.length}: ${w.conflicts.slice(0, 4).map((c) => c.kind + ':' + c.id).join(' ')}`);
     lines.push(`aperture-open ${[...w.openIds].join(',') || '-'}  overruled ${[...w.overruled].join(',') || '-'}`);
-    lines.push(`render ${m.perf.fps.toFixed(0)} fps  ${m.perf.frameMs.toFixed(1)} ms  calls ${m.perf.calls}  tris ${(m.perf.tris / 1000).toFixed(0)}k`);
+    lines.push(`render ${m.perf.fps.toFixed(0)} fps  ${m.perf.frameMs.toFixed(1)} ms  calls ${m.perf.calls}  tris ${(m.perf.tris / 1000).toFixed(0)}k  res ${((m.perf.scale ?? 1) * 100).toFixed(0)}%`);
     w.recordings.forEach((r, i) => {
       if (!r) return;
       const pb = w.playbacks[i];
