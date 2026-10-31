@@ -453,6 +453,15 @@ export class EntityViews {
         if (o.isMesh) { o.material = this.lib.echo(o.material, slot); o.userData.echo = true; if (!v.echoMat) v.echoMat = o.material; }
       });
     }
+    // an echo of a Recollector stands in a ring of its slot's colour: which recording is which, readable from across the room
+    if (L.echo && L.def.type === 'player') {
+      const hue = SLOT_HUES[(L.layer - 1) % SLOT_HUES.length];
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.5, 40), new THREE.MeshBasicMaterial({ color: hue, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = -0.84; ring.renderOrder = 3; v.root.add(ring);
+      // and a thin dark under-stroke so it stays readable against the brightest floors and windows
+      const body = v.root.children.find((c) => c.isMesh && c.geometry?.type === 'LatheGeometry');
+      if (body) { const shell = new THREE.Mesh(body.geometry, new THREE.MeshBasicMaterial({ color: 0x0b0907, side: THREE.BackSide, transparent: true, opacity: 0.4, depthWrite: false, fog: false })); shell.scale.setScalar(1.08); shell.renderOrder = 2; v.root.add(shell); }
+    }
     this.group.add(v.root);
     return v;
   }

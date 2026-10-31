@@ -69,7 +69,7 @@ export function lightShaft({ color = 0xbcd4ff, topR = 0.5, botR = 3.5, height = 
         float vert = smoothstep(0.0, 0.25, vH) * (1.0 - smoothstep(0.65, 1.0, vH)) ;
         float dust = 0.55 + 0.45*n(vW*0.35 + vec3(0., -uTime*0.08, uTime*0.03));
         float near = smoothstep(0.5, 6.0, length(cameraPosition - vW));
-        gl_FragColor = vec4(uColor * edge * vert * dust * uI * near, 1.0);
+        gl_FragColor = vec4(min(uColor * edge * vert * dust * uI * near, vec3(0.5)), 1.0);   // a shaft adds light; it may not burn the floor to white
       }`,
   });
   const g = new THREE.CylinderGeometry(topR, botR, height, 32, 1, true);
@@ -386,7 +386,7 @@ function record(ctx) {
   let lastTick = -1;
   anim.push((t, w) => { if (!w || w.tick === lastTick) return; lastTick = w.tick; cx2.clearRect(0, 0, 1024, 256); cx2.fillStyle = '#ffe2b0'; cx2.font = 'bold 120px monospace'; const T = w.tick, f = T % 60, s = Math.floor(T / 60) % 60, m = Math.floor(T / 3600) % 60, h = Math.floor(T / 216000);
     cx2.fillText(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`, 60, 150); cx2.font = '38px monospace'; cx2.fillText('● REC 000  ·  THE LAST DAY  ·  PLAYHEAD', 60, 215); tex.needsUpdate = true; });
-  for (let i = 0; i < Math.round(8 * q.scenery); i++) { const s = lightShaft({ color: 0xffe0b0, topR: 0.8, botR: 4.2, height: 40, intensity: 0.3 }); s.position.set((rnd() - 0.5) * 16, 18, 4 - i * 18); s.rotation.z = (rnd() - 0.5) * 0.5; g.add(s); anim.push((t) => { s.material.uniforms.uTime.value = t; }); }
+  for (let i = 0; i < Math.round(8 * q.scenery); i++) { const s = lightShaft({ color: 0xffe0b0, topR: 0.8, botR: 4.2, height: 40, intensity: 0.17 }); s.position.set((rnd() - 0.5) * 16, 18, 4 - i * 18); s.rotation.z = (rnd() - 0.5) * 0.5; g.add(s); anim.push((t) => { s.material.uniforms.uTime.value = t; }); }
   const dust = dustMotes(Math.round(q.particles * 1.5), { x0: -12, x1: 12, y0: 0.3, y1: 16, z0: B.z0, z1: 10 }, 0xfff0d0, 0.05); g.add(dust); anim.push((t) => { dust.material.uniforms.uTime.value = t; });
   g.add(rulerDecal(8, B.z0 + 2, 0, 1.4));
   return { group: g, anim, fog: fogOf(0x2a2014, 0.0085), ambient: { sky: 0x8a7050, ground: 0x181008, intensity: 0.7 }, key: { color: 0xffe0b0, intensity: 2.8, dir: [-0.4, 0.9, 0.4] },

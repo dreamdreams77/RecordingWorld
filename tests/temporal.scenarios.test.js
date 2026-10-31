@@ -85,3 +85,12 @@ test('regression: an echo of yourself appearing on top of you while you rise nev
   w.player.st[4] = 5; w.step(IN());
   assert.ok(w.player.st[2] < 6 && w.player.st[1] > -1, `the player is still inside the level (z ${w.player.st[2].toFixed(2)}, y ${w.player.st[1].toFixed(2)})`);
 });
+
+test('the sandbox bounds the cost: a world of many objects with six echoes still steps inside a frame budget at the sandbox limit (60)', () => {
+  const w = sandbox(); w.caps.slots = 6; w.recordings = Array(6).fill(null); w.playbacks = Array(6).fill(null); w.undo = Array.from({ length: 6 }, () => []); w.caps.maxVolume = [60, 20, 60];
+  for (let i = 0; i < 60; i++) crate(w, `c${i}`, [((i % 10) - 4.5) * 1.6, 0.5, -3 - Math.floor(i / 10) * 1.6]);
+  run(w, 30);
+  for (let s = 0; s < 6; s++) { w.startRecording(s, { x0: -20, x1: 20, y0: -1, y1: 8, z0: -30, z1: 10 }, 'm'); run(w, 200, IN({ mx: s % 2 ? 1 : -1, mz: -1 })); w.stopRecording(); }
+  w.playAll({ mode: 'loop' }); const t = []; for (let i = 0; i < 200; i++) { const a = performance.now(); w.step(IN()); t.push(performance.now() - a); }
+  t.sort((a, b) => a - b); assert.ok(t[100] < 12, `median step ${t[100].toFixed(1)} ms with 60 objects and six echoes (budget 16.7 ms)`);
+});

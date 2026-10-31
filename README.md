@@ -27,7 +27,7 @@ rejects a preset the game steps down automatically.
 `WASD` move · mouse look · `Space` jump · `E` use / load tape · `Q` frame a volume (click pins, wheel resizes, right
 click clears) · `R` record/stop · `1–6` slot · `T` play/pause · `Y` stop · `U` play all on the same tick · `L` mode
 (once / loop / ping-pong / hold) · `G` reverse · `, .` scrub · `[ ]` rate · `Backspace` erase · `Z X C V B N M` sing notes ·
-`Tab` state comparison · `K` return to checkpoint · `Shift+K` reset section · `F6` rewind · `Shift+Backspace` roll a slot back · `F5` save · `F3` developer overlay · `Esc` pause. Sandbox: `B` item, `Enter` place,
+`Tab` state comparison · `K` return to checkpoint · `Shift+K` reset section · `F6` rewind · `Shift+Backspace` roll a slot back · `F5` save · `F3` developer overlay · `Esc` pause. Sandbox: `I` item, `Enter` place,
 `Delete` remove, `F` link (`Shift+F` inverted), `J` note.
 
 ## The campaign

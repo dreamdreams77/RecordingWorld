@@ -16,6 +16,7 @@ import { Reel } from '../ui/reel.js';
 import { SPAWNABLE } from '../levels/sandbox.js';
 import { loadProgress, saveProgress, levelRecord, saveSnapshot, loadSnapshot } from './progress.js';
 
+const SANDBOX_MAX = 60; // beyond this the simulation (objects × echoes × solids) no longer fits in a frame
 const NOTE_KEYS = ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM'];
 const NOTE_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const RATES = [0.25, 0.5, 1, 2, 4];
@@ -52,11 +53,13 @@ export class Game {
     requestAnimationFrame((t) => this.frame(t));
   }
 
-  resize() { this.renderer.resize(); }
+  /** The interface scales with the screen: text that is comfortable at 720p would be tiny at 1080p or 4K. The user's UI-scale setting multiplies this. */
+  applyUiScale() { const auto = Math.max(1, Math.min(1.6, (window.innerHeight || 720) / 800)); document.documentElement.style.setProperty('--ui', +(this.settings.uiScale * auto).toFixed(3)); }
+  resize() { this.renderer.resize(); this.applyUiScale?.(); }
 
   applySettings() {
     const s = this.settings;
-    document.documentElement.style.setProperty('--ui', s.uiScale);
+    this.applyUiScale();
     document.body.classList.toggle('hc', s.highContrast);
     document.body.classList.toggle('reduced', s.reducedMotion);
     this.audio?.applySettings(s);
@@ -397,15 +400,17 @@ export class Game {
   // ------------------------------------------------------------------ sandbox toolkit
   sandboxKeys() {
     const I = this.input, w = this.world, sb = this.sb;
-    if (I.hit('KeyB')) { sb.item = (sb.item + 1) % SPAWNABLE.length; }
+    // (editing keys must not also be note keys — Z X C V B N M sing — or editing makes sound)
+    if (I.hit('KeyI')) { sb.item = (sb.item + 1) % SPAWNABLE.length; }
     if (I.hit('KeyJ')) { sb.note = (sb.note % 7) + 1; }
     if (I.hit('Enter')) {
       const hit = this.aimHit(30), item = SPAWNABLE[sb.item];
+      if (w.items.filter((L) => L.def.dyn).length >= SANDBOX_MAX) { this.hud.toast(`The sandbox holds at most ${SANDBOX_MAX} objects — delete one (Del) to place another.`, 'warn'); return; }
       if (hit.t !== null) { w.spawn(item.make([Math.round(hit.p[0] * 2) / 2, Math.max(0, hit.p[1]), Math.round(hit.p[2] * 2) / 2], sb.note)); this.audio?.event('pin'); }
     }
     const aimed = () => { const { o, d } = this.aimRay(); const p = w.pick(o, d, 30); return p && !p.item.echo ? p.item : null; };
-    if (I.hit('Delete')) { const a = aimed(); if (a?.def.dyn) { w.removeEntity(a.id); w.refreshDerived(); this.audio?.event('stop'); } }
-    if (I.hit('KeyX')) { const a = aimed(); if (a && Array.isArray(a.def.in)) { a.def.in = []; this.hud.toast(`${a.id}: inputs cleared`, ''); } }
+    if (I.hit('Delete') && !I.held('ShiftLeft', 'ShiftRight')) { const a = aimed(); if (a?.def.dyn) { w.removeEntity(a.id); w.refreshDerived(); this.audio?.event('stop'); } }
+    if (I.hit('Delete') && I.held('ShiftLeft', 'ShiftRight')) { const a = aimed(); if (a && Array.isArray(a.def.in)) { a.def.in = []; this.hud.toast(`${a.id}: inputs cleared`, ''); } }
     if (I.hit('KeyF')) {
       const a = aimed(); if (!a) return;
       if (!sb.link) { sb.link = a.id; this.hud.toast(`Link source: ${a.id}. Now aim at a sink and press F.`, 'good'); }
@@ -459,8 +464,9 @@ export class Game {
     this.acc += dt;
     let steps = 0;
     const mx = (I.held('KeyD') ? 1 : 0) - (I.held('KeyA') ? 1 : 0), mz = (I.held('KeyW') ? 1 : 0) - (I.held('KeyS') ? 1 : 0);
-    const tone = NOTE_KEYS.findIndex((k) => I.held(k)) + 1;
-    const jump = I.held('Space');
+    // a key pressed AND released between two frames (a quick tap at a low frame rate) must still count: honour the press edge as well as the held state
+    const tone = NOTE_KEYS.findIndex((k) => I.held(k) || I.hit(k)) + 1;
+    const jump = I.held('Space') || I.hit('Space');
     while (!this.testHold && this.acc >= 1 / 60 && steps < 6) {
       this.prev.set(w.player.st);
       w.step({ mx, mz, jump, interact: this.pendingInteract, tone, yaw: this.yaw, pitch: this.pitch, slot: this.selected });
@@ -610,7 +616,7 @@ export class Game {
     if (w.level.sound || w.level.id !== 'ch1') parts.push(k('Z–M', `voice${tone ? ' ' + NOTE_NAMES[tone - 1] : ''}`));
     if (tape) parts.unshift(k('E', `load tape: ${tape.name}`));
     parts.push(k('F6', `rewind (${this.rewinds.length})`));
-    if (this.level.sandbox) parts.push(k('B', `item: ${SPAWNABLE[this.sb.item].label}`), k('J', `note ${NOTE_NAMES[this.sb.note - 1]}`), k('Enter', 'place'), k('F', this.sb.link ? `link ${this.sb.link} →` : 'link'));
+    if (this.level.sandbox) parts.push(k('I', `item: ${SPAWNABLE[this.sb.item].label}`), k('J', `note ${NOTE_NAMES[this.sb.note - 1]}`), k('Enter', 'place'), k('F', this.sb.link ? `link ${this.sb.link} →` : 'link'));
     return parts.join('');
   }
 }

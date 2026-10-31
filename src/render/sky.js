@@ -92,5 +92,6 @@ export function makeEnvironment(renderer, theme, panels) {
   const rt = pm.fromScene(scene, 0.02);
   pm.dispose();
   scene.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
+  rt.texture.userData.rt = rt; // the environment texture belongs to this target: dispose the target, not just the texture
   return rt.texture;
 }

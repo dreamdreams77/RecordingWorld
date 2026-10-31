@@ -137,13 +137,18 @@ float vn(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.-2.*f);
   float mo = sin((vWP.x + vWP.z) * 38.0 + uTime * 7.0) * sin(vWP.y * 33.0 - uTime * 3.0);
   vec3 tintE = mix(uTint, vec3(1.0, 0.62, 0.28), 0.45 * uRev);          // reverse runs warm
   float facet = step(0.62, vn(floor(vWP * 7.0) + uSeed)) * fres;          // frozen: faceted ice at the rim
-  totalEmissiveRadiance += tintE * (rimFront * 7.0 + band * 0.55 + fres * 1.5 + 0.02 + uSolo * (fres * 2.5 + 0.25));   // amber at the edges, not everywhere
-  totalEmissiveRadiance += vec3(0.78, 0.9, 1.0) * uFrozen * (fres * 2.2 + facet * 3.0 + 0.1);
+  totalEmissiveRadiance += tintE * (rimFront * 7.0 + band * 0.55 + fres * 2.4 + 0.02 + uSolo * (fres * 5.0 + 0.5));   // amber at the edges, not everywhere
+  totalEmissiveRadiance += vec3(0.78, 0.9, 1.0) * uFrozen * (fres * 1.8 + facet * 1.8 + 0.06);
   totalEmissiveRadiance += vec3(1.0, 0.25, 0.9) * smoothstep(0.55, 1.0, mo) * uConflict * 3.0;`)
         .replace('#include <opaque_fragment>', `#include <opaque_fragment>
   float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
   // silver gelatin: the body is monochrome silver; halation bleeds the slot's warm tone out of the highlights
-  gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(lum) * vec3(0.93, 0.96, 1.0) * 2.1 + uTint * 0.03, 0.82);
+  vec3 silver = vec3(lum) * vec3(0.93, 0.96, 1.0) * 2.1;
+  vec3 bodyCol = silver * mix(vec3(1.0), uTint * 1.9, 0.5);                                   // the slot's colour lives in the silver itself, so six echoes can be told apart
+  bodyCol = mix(bodyCol, silver * vec3(2.3, 0.8, 0.18), 0.9 * uRev);                         // reversed: the whole echo runs warm amber
+  bodyCol = mix(bodyCol, silver * vec3(0.62, 0.85, 1.6), 0.58 * uSlow);                       // slowed: cold and heavy
+  bodyCol *= 1.0 + 0.4 * uSolo;                                                              // solo: singled out, brighter
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, bodyCol + uTint * 0.03, 0.84);
   gl_FragColor.rgb += uTint * smoothstep(0.5, 1.3, lum) * 0.32;
   gl_FragColor.rgb *= 0.93 + 0.07 * h31(vec3(floor(uTime * 24.0), uSeed, 1.0)); // 24 fps flicker
   gl_FragColor.rgb *= 0.86 + 0.14 * step(0.5, fract(vWP.y * uSlice * 5.0));

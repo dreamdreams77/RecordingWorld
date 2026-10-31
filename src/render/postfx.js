@@ -91,5 +91,6 @@ export class PostFX {
     this.bloom.strength = params.bloom ?? 0.5;
     this.composer.render(dt);
   }
-  dispose() { this.composer.dispose?.(); }
+  /** The composer frees only its own two targets; every pass (AO, bloom mips, the scene pass) owns more. */
+  dispose() { for (const p of this.composer.passes ?? []) p.dispose?.(); this.composer.dispose?.(); }
 }

@@ -232,3 +232,10 @@ body.touch #feed { width: min(260px, 38vw); }
 #folio.faded, #legend.hushed, #deck.hidden { opacity: 0; pointer-events: none; }
 .hudlayer.min #reticle { opacity: .42; transition: opacity .25s, transform .25s; }
 .hudlayer.min.aiming #reticle { opacity: 1; }
+
+/* portrait phones: the thumbs own the bottom of the screen, so words go above them */
+@media (orientation: portrait) {
+  body.touch #subtitle { bottom: calc(340px + env(safe-area-inset-bottom)) !important; top: auto !important; max-width: calc(100vw - 24px); }
+  body.touch #feed, body.touch.reel-open #feed { top: 150px !important; bottom: auto !important; left: 8px !important; width: calc(100vw - 16px) !important; }
+  body.touch.reel-open #feed { top: 215px !important; }
+}

@@ -107,7 +107,21 @@ export class GameRenderer {
     this.renderer.compile(this.scene, this.camera);
     progressCb(1, 'Ready');
   }
+  /** Frees every GPU resource a scene graph owns: geometries, instance buffers, materials, the textures they hold, shadow maps. */
+  disposeGraph(root) {
+    const done = new Set(), dispose = (r) => { if (r && !done.has(r)) { done.add(r); r.dispose?.(); } };
+    root.traverse((o) => {
+      dispose(o.geometry); if (o.isInstancedMesh) o.dispose?.(); if (o.isLight && o.shadow?.map) dispose(o.shadow.map);
+      for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
+        if (done.has(m)) continue;
+        for (const v of Object.values(m)) if (v?.isTexture) dispose(v);
+        if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u?.value?.isTexture) dispose(u.value);
+        dispose(m);
+      }
+    });
+  }
   teardown() {
+    this.disposeGraph(this.scene); this.env?.userData?.rt?.dispose?.(); this.env?.dispose?.(); if (this.scene.environment) this.scene.environment = null;
     for (const c of [...this.scene.children]) this.scene.remove(c);
     this.views?.clear(); this.post?.dispose(); this.post = null;
     this.reflRT?.dispose(); this.reflRT = null; this.reflMats = [];

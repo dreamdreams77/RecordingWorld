@@ -18,7 +18,7 @@ const CONTROLS = [
   ['G', 'Reverse direction'], ['T (while playing)', 'Freeze the echo at this moment / resume'], ['O', 'Selective playback: leave the aimed object out of its echo  (Shift: replay only it)'], [', .', 'Step the timeline back / forward exactly one tick (hold to repeat; Shift: ten ticks)'], ['; \'', 'Jump to the previous / next event in the recording (a plate pressed, a door opening…)'], ['Home · End', 'Jump to the start / end of the recording'], ['Ctrl + mouse', 'Jog wheel: move the mouse sideways to drag through history; the view stays still (Shift: coarse)'], ['F', 'Freeze the echo at this moment (or at the previewed one) · F again releases'], ['T (on a previewed moment)', 'Play from the moment you are looking at'], ['[ ]', 'Playback rate'], ['Backspace', 'Erase the selected slot'],
   ['Z X C V B N M', 'Hold to sing notes C D E F G A B'], ['Tab', 'Expand the state comparison'], ['H', 'Show / hide the hint'],
   ['K', 'Return to checkpoint and recall crates'], ['Shift+K', 'Reset the section (keeps your recordings)'], ['F6', 'Rewind: step back through automatic captures'], ['Shift+Backspace', 'Roll the selected slot back to its previous take'], ['F5', 'Save a snapshot'], ['F3 · F4', 'Developer overlay · trajectories and volumes'], ['Esc', 'Pause'],
-  ['Sandbox: B · Enter · Del · F', 'Cycle item · place · remove · link source → sink  (Shift+F: link inverted)'],
+  ['Sandbox: I · Enter · Del · F', 'Cycle item · place (up to 60 objects) · remove · link source → sink  (Shift+F: link inverted · Shift+Del: clear the aimed object’s inputs)'],
 ];
 
 const TOUCH_CONTROLS = [

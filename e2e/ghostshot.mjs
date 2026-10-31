@@ -25,9 +25,10 @@ await p.evaluate(async (S) => {
   for (let i = 0; i < 20; i++) w.step(IDLE); w.teleportPlayer(S.from, 0); for (const id of S.press ?? []) w.byId.get(id).st[0] = 1; for (let i = 0; i < 70; i++) w.step(IDLE); w.teleportPlayer(S.at, 0); for (let i = 0; i < 20; i++) w.step(IDLE); w.stopRecording(); }
   g.selected = 0;
   if (S.echo) { const m = S.echo; if (m === 'frozen') w.playFrom(0, S.tick, { frozen: true }); else { w.play(0, { mode: 'loop' }); w.setHead(0, S.tick); w.playbacks[0].playing = true; if (m === 'reverse') w.reverse(0); if (m === 'slow') w.setRate(0, 0.25); } w.applyEchoStates(); g.testHold = false; for (let i = 0; i < 3; i++) { g.playFrame(1 / 60); g.input.endFrame(); } g.testHold = true; }
-  else { g.instr.cursor = { slot: 0, tick: S.tick }; } g.instr.poke(); g.yaw = S.yaw; g.pitch = S.pitch; g.cur.set(w.player.st); g.prev.set(w.player.st);
+  else { g.instr.cursor = { slot: 0, tick: S.tick, rec: w.recordings[0] }; } g.instr.poke(); g.yaw = S.yaw; g.pitch = S.pitch; g.cur.set(w.player.st); g.prev.set(w.player.st);
 }, S);
 await p.waitForTimeout(2500);
 await p.screenshot({ path: out, timeout: 120000 });
+console.log(JSON.stringify(await p.evaluate(() => { const g = window.__game, r = document.querySelector('.reel'), f = document.getElementById('feed'); return { reelClass: r?.className, live: !!g.instr.live(), preview: g.instr.isPreview(), expanded: g.instr.expanded(), reelOpen: g.reel.open, touch: document.body.classList.contains('touch'), feedTop: getComputedStyle(f).top, feedBottom: getComputedStyle(f).bottom, orient: matchMedia('(orientation: portrait)').matches, ui: getComputedStyle(document.documentElement).getPropertyValue('--ui') }; })));
 console.log('errors', errs.slice(0, 3));
 await b.close();
