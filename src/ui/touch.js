@@ -45,6 +45,7 @@ export class TouchControls {
       this.button('−', () => { this.I.wheel += 1; }, 'a sm', 'size'), this.button('+', () => { this.I.wheel -= 1; }, 'a sm', 'size'),
       this.button('✕', () => { this.I.clicks.push(2); }, 'a sm', 'unpin'),
       this.button('TAB', () => ({ code: 'Tab' }), 'a sm', 'lens'),
+      this.button('OMIT', () => ({ code: 'KeyO' }), 'a', 'O'), this.button('SOLO', () => ({ code: 'KeyO', shift: true }), 'a', ''),
       this.button('ALL', () => ({ code: 'KeyU' }), 'a', 'U'), this.button('HINT', () => ({ code: 'KeyH' }), 'a', 'H'),
       this.button('×½', () => ({ code: 'BracketLeft' }), 'a sm', '['), this.button('×2', () => ({ code: 'BracketRight' }), 'a sm', ']'),
       this.button('ERASE', () => ({ code: 'Backspace' }), 'a', ''), this.button('UNDO', () => ({ code: 'Backspace', shift: true }), 'a', ''),

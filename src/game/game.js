@@ -374,8 +374,21 @@ export class Game {
       else { if (aimed?.type.name === 'ledger') this.pushRewind(); this.pendingInteract = true; }
     }
     if (I.hit('KeyU')) { const n = w.playAll({ mode: w.playbacks.find((p) => p)?.mode }); if (n) { this.audio?.event('play'); this.hud.toast(`${n} recordings started on the same tick`, 'good'); } }
+    if (I.hit('KeyO')) this.selectiveKey(I.held('ShiftLeft', 'ShiftRight'));
     if (I.hit('KeyP') && this.settings.devMode) this.showVolumes = !this.showVolumes;
     if (this.level.sandbox) this.sandboxKeys();
+  }
+  /** O: leave the aimed object out of its echo (selective playback). Shift+O: replay only that object. */
+  selectiveKey(solo) {
+    const w = this.world, { o, d } = this.aimRay(), p = w.pick(o, d, 30);
+    if (!p) { this.hud.toast('Aim at an object inside a recording, then press O to leave it out of the replay.', 'warn'); return; }
+    const slot = p.item.echo ? p.item.layer - 1 : this.selected, id = p.item.id;
+    if (!w.recordings[slot]?.tracks.has(id)) { this.hud.toast(`Recording ${slot + 1} does not contain ${id}. Select the slot whose echo holds it.`, 'warn'); return; }
+    const r = solo ? w.soloTrack(slot, id) : w.muteTrack(slot, id);
+    this.teach('r-selective', 'SELECTIVE PLAYBACK', 'A recording is a bundle of histories, one per object. Leave one out (O) and the echo replays without it; isolate one (Shift+O) and only that object’s history returns. What is left out simply did not happen — in that echo.');
+    this.audio?.event('select');
+    if (solo) this.hud.toast(r ? `Recording ${slot + 1} now replays only ${id}.` : `Recording ${slot + 1} replays everything again.`, 'good', 'SELECTIVE PLAYBACK');
+    else this.hud.toast(r ? `${id} is left out of recording ${slot + 1}.` : `${id} returns to recording ${slot + 1}.`, 'good', 'SELECTIVE PLAYBACK');
   }
   // ------------------------------------------------------------------ sandbox toolkit
   sandboxKeys() {

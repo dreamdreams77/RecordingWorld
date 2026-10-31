@@ -158,7 +158,7 @@ export class World {
           pb.items.set(tr.id, it);
         }
         const was = it.alive;
-        it.alive = !this.sealed.has(tr.id) && tr.sample(tau, it.st); // canon outranks apocrypha
+        it.alive = !this.sealed.has(tr.id) && !pb.muted.has(tr.id) && tr.sample(tau, it.st); // canon outranks apocrypha
         it.age = it.alive ? (was ? it.age + 1 : 0) : 0;
       }
     }
@@ -544,6 +544,26 @@ export class World {
     this.recordings.forEach((r, i) => { if (r && this.play(i, opts)) { const pb = this.playbacks[i]; if (pb.active) { pb.head = pb.rate < 0 ? r.length - 1 : 0; pb.playing = true; n++; } } });
     return n;
   }
+  /** Selective playback: leave one recorded object out of an echo (or put it back). Returns the new muted state. */
+  muteTrack(slot, id, on = null) {
+    const pb = this.playbacks[slot] ?? (this.recordings[slot] && (this.playbacks[slot] = new Playback(slot, this.recordings[slot])));
+    if (!pb || !pb.rec.tracks.has(id)) return null;
+    const m = on ?? !pb.muted.has(id);
+    if (m) pb.muted.add(id); else pb.muted.delete(id);
+    this.applyEchoStates(); this.refreshDerived?.();
+    this.emit(m ? 'muted' : 'unmuted', { slot, id });
+    return m;
+  }
+  /** Keep only this object in the echo (everything else muted); calling it again restores all. */
+  soloTrack(slot, id) {
+    const pb = this.playbacks[slot] ?? (this.recordings[slot] && (this.playbacks[slot] = new Playback(slot, this.recordings[slot])));
+    if (!pb || !pb.rec.tracks.has(id)) return null;
+    const solo = pb.muted.size === pb.rec.tracks.size - 1 && !pb.muted.has(id);
+    pb.muted = solo ? new Set() : new Set([...pb.rec.tracks.keys()].filter((k) => k !== id));
+    this.applyEchoStates(); this.refreshDerived?.();
+    this.emit('solo', { slot, id, on: !solo });
+    return !solo;
+  }
   pause(slot) { const pb = this.playbacks[slot]; if (pb && pb.active) pb.playing = false; }
   togglePlay(slot) {
     const pb = this.playbacks[slot]; if (!pb) return;
@@ -627,7 +647,7 @@ export class World {
     this.playbacks = c.pbs.map((j, i) => {
       if (!j || !this.recordings[i]) return null;
       const pb = new Playback(i, this.recordings[i]);
-      Object.assign(pb, { head: j.head, rate: j.rate, mode: j.mode, active: j.active, playing: j.playing, coherence: j.coherence, age: j.age });
+      Object.assign(pb, { head: j.head, rate: j.rate, mode: j.mode, active: j.active, playing: j.playing, coherence: j.coherence, age: j.age, muted: new Set(j.muted ?? []) });
       return pb;
     });
     this.refreshDerived();
@@ -689,7 +709,7 @@ export class World {
     for (const k of Object.keys(this.pins).sort()) { h.str(k); h.num(this.pins[k]); }
     for (const k of [...this.sealed].sort()) h.str(k);
     for (const L of this.items) { h.str(L.id); for (const v of L.st) h.num(v); }
-    this.playbacks.forEach((pb, i) => { if (pb) { h.num(i); h.num(pb.head); h.num(pb.active ? 1 : 0); h.num(pb.playing ? 1 : 0); h.num(pb.rate); h.num(pb.coherence); } });
+    this.playbacks.forEach((pb, i) => { if (pb) { h.num(i); h.num(pb.head); h.num(pb.active ? 1 : 0); h.num(pb.playing ? 1 : 0); h.num(pb.rate); h.num(pb.coherence); for (const m of [...pb.muted].sort()) h.str(m); } });
     this.recordings.forEach((r) => { if (r) { h.num(r.length); h.num(r.keyframes); } });
     return h.hex();
   }
@@ -714,7 +734,7 @@ export class World {
     this.playbacks = s.pbs.map((j, i) => {
       if (!j || !this.recordings[i]) return null;
       const pb = new Playback(i, this.recordings[i]);
-      Object.assign(pb, { head: j.head, rate: j.rate, mode: j.mode, active: j.active, playing: j.playing, coherence: j.coherence, age: j.age });
+      Object.assign(pb, { head: j.head, rate: j.rate, mode: j.mode, active: j.active, playing: j.playing, coherence: j.coherence, age: j.age, muted: new Set(j.muted ?? []) });
       return pb;
     });
     this.refreshDerived();

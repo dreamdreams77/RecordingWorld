@@ -241,3 +241,38 @@ test('barks fire once near their trigger and honour flags; discoveries can be ga
   assert.equal(msgs.filter((m) => m.kind === 'discovery').length, 2, 'the post-ending log appears when the flag is set');
   bot.step(60); assert.equal(dir.drain().filter((m) => m.kind === 'bark').length, 0, 'barks do not repeat');
 });
+
+test('selective playback: a muted track leaves the echo, survives snapshot/rewind, and solo isolates one object', async () => {
+  const { World, IDLE } = await import('../src/sim/world.js');
+  const { LEVELS } = await import('../src/levels/index.js');
+  const w = new World(LEVELS.ch1);
+  const P = w.player.st;
+  const plate = w.byId.get('plateA'), [px, , pz] = plate.def.pos;
+  w.teleportPlayer([px, 0, pz], 0);
+  w.startRecording(0, { x0: px - 3, x1: px + 3, y0: -1, y1: 3, z0: pz - 3, z1: pz + 3 }, 'stand');
+  for (let i = 0; i < 40; i++) w.step(IDLE);
+  w.stopRecording();
+  w.teleportPlayer([px + 6, 0, pz], 0);
+  assert.ok(w.recordings[0].tracks.has('player'), 'the player is in the recording');
+  w.play(0, { mode: 'loop' });
+  for (let i = 0; i < 5; i++) w.step(IDLE);
+  assert.equal(w.R.get('plateA'), 1, 'the echo of the player presses the plate');
+  assert.equal(w.muteTrack(0, 'player'), true);
+  for (let i = 0; i < 3; i++) w.step(IDLE);
+  assert.equal(w.R.get('plateA'), 1, 'the plate’s own recorded history still says it was pressed');
+  w.muteTrack(0, 'plateA');
+  for (let i = 0; i < 3; i++) w.step(IDLE);
+  assert.equal(w.R.get('plateA'), 0, 'with both the player and the plate’s history left out, the plate is up');
+  assert.ok(!w.aliveList.some((L) => L.echo && L.id === 'player'), 'no player echo exists');
+  const h = w.hash(), snap = w.snapshot();
+  const w2 = new World(LEVELS.ch1); w2.restore(JSON.parse(JSON.stringify(snap)));
+  assert.equal(w2.hash(), h, 'muting survives save/load exactly');
+  const cap = w.capture(); w.muteTrack(0, 'player', false); w.reinstate(cap);
+  assert.ok(w.playbacks[0].muted.has('player'), 'muting survives rewind');
+  w.soloTrack(0, 'player');
+  assert.equal(w.playbacks[0].muted.size, w.recordings[0].tracks.size - 1, 'solo mutes everything else');
+  for (let i = 0; i < 3; i++) w.step(IDLE);
+  assert.equal(w.R.get('plateA'), 1, 'the player’s echo alone physically presses the present plate');
+  w.soloTrack(0, 'player');
+  assert.equal(w.playbacks[0].muted.size, 0, 'solo again restores everything');
+});

@@ -139,6 +139,7 @@ export class Playback {
     this.active = false; this.playing = false;
     this.coherence = 1; this.age = 0;
     this.items = new Map();
+    this.muted = new Set(); // selective playback: tracks left out of this echo
   }
   get tau() { return Math.max(0, Math.min(this.rec.length - 1, Math.floor(this.head))); }
   start(rate = 1) {
@@ -166,7 +167,7 @@ export class Playback {
     }
     return null;
   }
-  toJSON() { return { slot: this.slot, head: this.head, rate: this.rate, mode: this.mode, active: this.active, playing: this.playing, coherence: this.coherence, age: this.age }; }
+  toJSON() { return { slot: this.slot, head: this.head, rate: this.rate, mode: this.mode, active: this.active, playing: this.playing, coherence: this.coherence, age: this.age, muted: [...this.muted] }; }
 }
 
 // --- base64 helpers for compact JSON saves (work in browsers and Node 20+)

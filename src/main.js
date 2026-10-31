@@ -7,6 +7,7 @@ const params = new URLSearchParams(location.search);
 
 async function boot() {
   document.getElementById('boot')?.remove();
+  try { sessionStorage.removeItem('twiar.reloaded'); } catch { /* ignore */ }
   const audio = new AudioEngine();
   const game = new Game(root, { audio });
   const unlock = () => { audio.init(); audio.applySettings(game.settings); };

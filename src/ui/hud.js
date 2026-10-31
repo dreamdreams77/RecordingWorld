@@ -149,9 +149,9 @@ export class HUD {
     // playhead
     const px = (pb.head / Math.max(1, rec.length - 1)) * W;
     if (pb.active) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(px - 1, 0, 2, H); g.fillStyle = hue; g.globalAlpha = 0.14; g.fillRect(0, 0, px, H); g.globalAlpha = 1; }
-    S.state.textContent = pb.active ? (pb.playing ? (pb.rate < 0 ? '◀ play' : '▶ play') : '❚❚ held') : (rec.source === 'archive' ? '▤ tape' : '■ ready');
+    S.state.textContent = pb.active ? (pb.playing ? (pb.rate < 0 ? '◀ play' : '▶ play') : '❄ frozen') : (rec.source === 'archive' ? '▤ tape' : '■ ready');
     S.state.className = 'state' + (pb.active ? ' on' : '');
-    S.mode.textContent = `${pb.mode}${Math.abs(pb.rate) !== 1 ? ` ×${Math.abs(pb.rate)}` : ''}`;
+    S.mode.textContent = `${pb.mode}${Math.abs(pb.rate) !== 1 ? ` ×${Math.abs(pb.rate)}` : ''}${pb.muted.size ? ` · ${rec.tracks.size - pb.muted.size}/${rec.tracks.size}` : ''}`;
     S.time.textContent = `${secs(pb.head)}/${secs(rec.length)}`;
     S.coh.style.width = `${(pb.active ? pb.coherence : 1) * 100}%`;
     S.coh.style.background = pb.coherence < 0.4 ? '#ff4df0' : hue;

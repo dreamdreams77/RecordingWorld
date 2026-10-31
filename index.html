@@ -10,9 +10,23 @@
 <link rel="stylesheet" href="/src/ui/styles.css">
 </head>
 <body>
-<div id="boot"><b>THE WORLD IS A RECORDING</b><br>Loading… If this message stays, the game script did not run.<br>
-Browsers block the game when <code>index.html</code> is opened straight from disk (file://) and when the source page is hosted without building.
-Serve the built game over http: <code>npm run build &amp;&amp; npm run preview</code> (or <code>npm run dev</code>), or host the contents of <code>dist/</code> on any static host.</div>
+<div id="boot"><b>THE WORLD IS A RECORDING</b><br><span id="boot-msg">Loading…</span></div>
+<noscript><div id="boot">This game needs JavaScript and WebGL 2.</div></noscript>
+<script>
+// Before the game script: explain a page that cannot run, and recover from a stale cached page whose script files
+// were replaced by a newer deploy (reload once with a cache-buster).
+(function () {
+  var msg = function (h) { var m = document.getElementById('boot-msg'); if (m) m.innerHTML = h; };
+  if (location.protocol === 'file:') msg('Browsers block games opened straight from disk. Serve it over http: <code>npm run build &amp;&amp; npm run preview</code>, or host the <code>dist/</code> folder.');
+  window.addEventListener('error', function (e) {
+    var t = e.target;
+    if (!t || (t.tagName !== 'SCRIPT' && t.tagName !== 'LINK') || location.protocol === 'file:') return;
+    try { if (!sessionStorage.getItem('twiar.reloaded')) { sessionStorage.setItem('twiar.reloaded', '1'); location.replace(location.pathname + '?v=' + Date.now()); return; } } catch (_) {}
+    msg('The game files did not load. <a href="' + location.pathname + '?v=' + Date.now() + '" style="color:#e8c88a">Reload</a>');
+  }, true);
+  setTimeout(function () { if (document.getElementById('boot-msg')) msg('Still loading… If nothing happens, <a href="' + location.pathname + '?v=' + Date.now() + '" style="color:#e8c88a">reload</a>. The game needs a browser with JavaScript and WebGL 2.'); }, 15000);
+})();
+</script>
 <div id="app">
   <canvas id="view" tabindex="0"></canvas>
 </div>
