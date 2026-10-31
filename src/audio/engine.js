@@ -15,6 +15,8 @@ const THEME_AUDIO = {
   record:      { root: 58.3, rev: 4.6, wind: 500,  fifth: 1.25,  pulse: 0.25, clank: 0 },
 };
 
+import { cueFor, LEVEL, HISS_GAIN } from './cues.js';
+
 export class AudioEngine {
   constructor() {
     this.ctx = null; this.ready = false; this.voices = new Map(); this.level = null; this.settings = null;
@@ -23,25 +25,33 @@ export class AudioEngine {
   }
 
   /** Must be called from a user gesture (click / key) the first time. */
-  init() {
+  init(ctxOverride = null) {
     if (this.ctx) { this.ctx.resume?.(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    const c = this.ctx = new AC({ latencyHint: 'interactive' });
+    if (!AC && !ctxOverride) return;
+    const c = this.ctx = ctxOverride ?? new AC({ latencyHint: 'interactive' });
     this.master = c.createGain(); this.master.gain.value = 0.8;
     this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -14; this.comp.ratio.value = 4; this.comp.attack.value = 0.005; this.comp.release.value = 0.2;
     this.analyser = c.createAnalyser(); this.analyser.fftSize = 1024;
     this.master.connect(this.comp); this.comp.connect(this.analyser); this.analyser.connect(c.destination);
     this.bus = {};
     for (const k of ['sfx', 'amb', 'music', 'voice']) { const g = c.createGain(); g.connect(this.master); this.bus[k] = g; }
+    // the tape bus: everything the instrument says passes through the same worn tape — band-limited, softly saturated, with a short slapback
+    const tape = c.createGain(), hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), sat = c.createWaveShaper(), slap = c.createDelay(0.3), fb = c.createGain(), slapLp = c.createBiquadFilter(), wet = c.createGain();
+    hp.type = 'highpass'; hp.frequency.value = 110; lp.type = 'lowpass'; lp.frequency.value = 6200; lp.Q.value = 0.5;
+    const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = (i / 511.5) - 1; curve[i] = Math.tanh(1.7 * x) / Math.tanh(1.7); } sat.curve = curve;
+    slap.delayTime.value = 0.085; fb.gain.value = 0.24; slapLp.type = 'lowpass'; slapLp.frequency.value = 2800; wet.gain.value = 0.28;
+    tape.connect(hp); hp.connect(lp); lp.connect(sat); sat.connect(this.bus.sfx); sat.connect(slap); slap.connect(slapLp); slapLp.connect(fb); fb.connect(slap); slapLp.connect(wet); wet.connect(this.bus.sfx);
+    this.bus.tape = tape;
     this.reverb = c.createConvolver(); this.reverbSend = c.createGain(); this.reverbSend.gain.value = 1;
     this.reverbOut = c.createGain(); this.reverbOut.gain.value = 0.55;
     this.reverbSend.connect(this.reverb); this.reverb.connect(this.reverbOut); this.reverbOut.connect(this.master);
     this.setReverb(3);
     this.noiseBuf = this.makeNoise(2);
+    this.hissBuf = (() => { const b = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; })(); // tape hiss is white, not brown
     this.ready = true;
     if (this.settings) this.applySettings(this.settings);
-    c.resume?.();
+    try { c.resume?.()?.catch?.(() => {}); } catch { /* offline contexts cannot resume */ }
   }
   makeNoise(sec) {
     const c = this.ctx, b = c.createBuffer(1, c.sampleRate * sec, c.sampleRate), d = b.getChannelData(0);
@@ -254,44 +264,42 @@ export class AudioEngine {
   }
   footstep(k = 1) { const f = { chamber: 1800, machine: 1200, absence: 900, acoustic: 1400, observatory: 2000, record: 1500 }[this.level?.theme] ?? 1400; this.noiseTick(f * (0.8 + Math.random() * 0.4), 0.09, 0.2 * k, 1.8); this.blip(70, 0.08, 0.1 * k, 'sine'); }
   /** Every verb of the instrument has its own voice: you can play it with your eyes closed. */
+  /** Plays an instrument cue (src/audio/cues.js) on the tape bus. Tones are sine/triangle on one scale; noise is always band-passed tape hiss. */
+  playCue(list, cueName = '') {
+    const c = this.ctx, t0 = c.currentTime;
+    for (const e of list) {
+      const t = t0 + (e.at ?? 0);
+      if (e.k === 'tone') {
+        const o = c.createOscillator(), g = c.createGain(), lfo = c.createOscillator(), lg = c.createGain();
+        o.type = e.type; o.frequency.setValueAtTime(e.f, t);
+        if (e.to) o.frequency.exponentialRampToValueAtTime(e.to, t + e.dur);
+        lfo.frequency.value = 5.3; lg.gain.value = 6; lfo.connect(lg); lg.connect(o.detune); // tape wow: a few cents
+        const a = Math.min(0.012, e.dur / 4); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(e.vol * (LEVEL[cueName] ?? 1), t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + e.dur + a);
+        o.connect(g); g.connect(this.bus.tape); g.connect(this.reverbSend);
+        o.start(t); lfo.start(t); o.stop(t + e.dur + 0.12); lfo.stop(t + e.dur + 0.12);
+      } else {
+        const s = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
+        s.buffer = this.hissBuf; s.loop = true; bp.type = 'bandpass'; bp.frequency.value = e.f; bp.Q.value = e.q;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(e.vol * HISS_GAIN * (LEVEL[cueName] ?? 1), t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.004 + e.dur);
+        s.connect(bp); bp.connect(g); g.connect(this.bus.tape); s.start(t, Math.random()); s.stop(t + e.dur + 0.1);
+      }
+    }
+  }
   event(name, arg = 0) {
     if (!this.ready) return;
-    switch (name) {
-      case 'reverse': this.blip(1100, 0.55, 0.17, 'sawtooth', 'sfx', 160); this.noiseTick(3200, 0.5, 0.16, 0.8); setTimeout(() => this.blip(180, 0.25, 0.12, 'sine', 'sfx', 90), 420); return;   // a tape sucked backwards
-      case 'forward': this.blip(180, 0.4, 0.13, 'sawtooth', 'sfx', 900); this.noiseTick(900, 0.3, 0.1); return;
-      case 'slow': this.blip(520, 0.9, 0.14, 'sine', 'sfx', 130); this.blip(262, 0.9, 0.08, 'triangle', 'sfx', 66); return;                                                             // winding down, heavy
-      case 'fast': this.blip(300, 0.35, 0.1, 'square', 'sfx', 1200); this.noiseTick(4200, 0.25, 0.14); return;
-      case 'loop': this.blip(523, 0.07, 0.14, 'triangle'); setTimeout(() => this.blip(523, 0.07, 0.12, 'triangle'), 90); setTimeout(() => this.blip(784, 0.18, 0.14, 'triangle'), 180); return; // the seam closing
-      case 'freeze': this.noiseTick(7000, 0.5, 0.18, 6); this.blip(3136, 1.6, 0.07, 'sine'); this.blip(2093, 1.9, 0.07, 'sine'); this.blip(1568, 2.2, 0.06, 'sine'); return;          // ice: glassy and still
-      case 'thaw': this.blip(1568, 0.3, 0.1, 'sine', 'sfx', 392); this.noiseTick(1200, 0.25, 0.1); return;
-      case 'omit': this.blip(330, 0.18, 0.2, 'triangle', 'sfx', 82); this.noiseTick(260, 0.2, 0.3, 0.7); return;                                                                         // something taken out: a hollow thud
-      case 'unomit': this.blip(82, 0.18, 0.18, 'triangle', 'sfx', 330); return;
-      case 'solo': this.blip(1568, 1.4, 0.13, 'sine'); this.blip(2349, 1.1, 0.08, 'sine'); this.noiseTick(5000, 0.08, 0.12, 4); return;                                                   // one thing singled out: a bell
-      case 'preview': this.blip(660, 0.05, 0.08, 'sine'); return;
-      case 'marker': this.blip(1760, 0.08, 0.1, 'triangle'); this.blip(2217, 0.1, 0.06, 'sine'); return;
-      case 'scrub': { // tape head over the oxide: pitch follows position in the recording
-        const now = performance.now(); if (now - (this._scrubAt ?? 0) < 38) return; this._scrubAt = now;
-        this.noiseTick(900 + Math.max(0, Math.min(1, arg)) * 3200, 0.03, 0.09, 3); return;
-      }
-      default:
+    const cue = cueFor(name, arg);
+    if (cue) {
+      if (name === 'scrub') { const now = performance.now(); if (now - (this._scrubAt ?? 0) < 38) return; this._scrubAt = now; }
+      this.playCue(cue, name); return;
     }
     switch (name) {
-      case 'rec-start': this.blip(880, 0.12, 0.2, 'square', 'sfx', 1320); this.noiseTick(3000, 0.04, 0.2); setTimeout(() => this.blip(1320, 0.18, 0.18, 'square'), 90); break;
-      case 'rec-stop': this.blip(1320, 0.12, 0.18, 'square', 'sfx', 660); setTimeout(() => this.blip(660, 0.2, 0.16, 'square', 'sfx', 330), 90); break;
-      case 'play': this.blip(220, 0.5, 0.2, 'sawtooth', 'sfx', 660); this.noiseTick(600, 0.4, 0.15); break;
-      case 'stop': this.blip(660, 0.3, 0.16, 'sawtooth', 'sfx', 110); break;
-      case 'select': this.noiseTick(2600, 0.03, 0.15); this.blip(1400, 0.04, 0.06, 'sine'); break;
-      case 'pin': this.blip(520, 0.08, 0.16, 'triangle'); setTimeout(() => this.blip(780, 0.1, 0.14, 'triangle'), 60); break;
       case 'lever': this.noiseTick(300, 0.12, 0.5, 0.8); this.blip(90, 0.15, 0.35, 'sine', 'sfx', 50); break;
       case 'section': [392, 523.25, 659.25].forEach((f, i) => setTimeout(() => this.blip(f, 0.9, 0.09, 'sine', 'music'), i * 140)); break;
       case 'upgrade': [330, 440, 587, 880].forEach((f, i) => setTimeout(() => this.blip(f, 0.7, 0.1, 'triangle', 'music'), i * 110)); break;
       case 'discovery': [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => this.blip(f, 1.4, 0.08, 'sine', 'music'), i * 90)); break;
-      case 'tape': this.noiseTick(1800, 0.25, 0.25); this.blip(330, 0.4, 0.15, 'sawtooth', 'sfx', 165); break;
       case 'shock': this.noiseTick(150, 0.5, 0.8, 0.5); this.blip(60, 0.6, 0.4, 'sawtooth', 'sfx', 30); break;
       case 'collapse': this.noiseTick(500, 0.9, 0.7, 0.4); this.blip(300, 0.9, 0.3, 'sawtooth', 'sfx', 40); break;
       case 'canon': [196, 293.66, 392, 587.33].forEach((f, i) => setTimeout(() => this.blip(f, 2.4, 0.12, 'sine', 'music'), i * 160)); this.noiseTick(300, 0.8, 0.4, 0.5); break;
-      case 'rewind': this.blip(880, 0.6, 0.14, 'sawtooth', 'sfx', 110); this.noiseTick(2000, 0.5, 0.2); break;
-      case 'end': this.blip(440, 0.4, 0.12, 'triangle'); break;
       case 'complete': [261.63, 329.63, 392, 523.25, 659.25].forEach((f, i) => setTimeout(() => this.blip(f, 2.2, 0.1, 'sine', 'music'), i * 220)); break;
       default:
     }
