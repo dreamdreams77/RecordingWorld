@@ -141,13 +141,13 @@ export class Recording {
     return (this._markers = out.filter((m) => m.t >= 0 && m.t < Math.max(1, L)));
   }
   /**
-   * Samples every track at `tau` into reusable scratch buffers (no allocation after the first call) and returns the
+   * Samples every track at `tau` (omitting `muted` tracks and canon-`sealed` ids, exactly as playback does) into reusable scratch buffers (no allocation after the first call) and returns the
    * live entries [{id, def, st, type}] — the "preview" of a moment, without touching or copying any world.
    */
-  sampleAll(tau, muted = null) {
+  sampleAll(tau, muted = null, sealed = null) {
     if (!this._scratch) this._scratch = [...this.tracks.values()].map((tr) => ({ id: tr.id, def: tr.def, type: typeOf(tr.def), tr, st: new Float64Array(tr.nch), alive: false }));
     const t = Math.max(0, Math.min(this.length - 1, Math.floor(tau)));
-    for (const e of this._scratch) e.alive = !(muted && muted.has(e.id)) && e.tr.sample(t, e.st);
+    for (const e of this._scratch) e.alive = !(muted && muted.has(e.id)) && !(sealed && sealed.has(e.id)) && e.tr.sample(t, e.st); // sealed (canon) history is never replayed, so it is never previewed
     return this._scratch;
   }
   toJSON() {

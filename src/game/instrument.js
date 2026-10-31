@@ -24,29 +24,35 @@ export class Instrument {
   poke() { this.lastTouch = this.now(); }
   clear() { this.cursor = null; this.jogging = false; this.jog = 0; }
 
+  /** The preview cursor, if it is still about the recording in the selected slot (recording over, erasing, rolling back or rewinding drops it). */
+  live() {
+    const c = this.cursor; if (!c) return null;
+    if (c.slot !== this.slot || c.rec !== this.rec || !this.rec || !(c.tick >= 0 && c.tick < this.rec.length)) { if (c.slot === this.slot || c.rec !== this.w?.recordings[c.slot]) this.cursor = null; return null; }
+    return c;
+  }
   /** The tick under inspection: the echo's head if it is out in the world, else the preview cursor, else null. */
   head() {
     const pb = this.pb; if (!this.rec) return null;
     if (pb?.active) return Math.floor(pb.head);
-    return this.cursor && this.cursor.slot === this.slot ? this.cursor.tick : null;
+    return this.live()?.tick ?? null;
   }
-  isPreview() { return !!this.rec && !this.pb?.active && !!this.cursor && this.cursor.slot === this.slot; }
+  isPreview() { return !!this.rec && !this.pb?.active && !!this.live(); }
   /** Should the reel be open? Recording, examining, or having just touched an echo. */
   expanded() {
     if (this.w?.recorder) return true;
-    if (this.reelPinned || this.cursor) return true;
+    if (this.reelPinned || this.live()) return true;
     const pb = this.pb;
     return !!(pb?.active && this.now() - this.lastTouch < 6) || this.now() - this.lastTouch < 3;
   }
 
   // ---------------------------------------------------------------- moving through history
-  clampTick(t) { const r = this.rec; return r ? clamp(Math.round(t), 0, Math.max(0, r.length - 1)) : 0; }
+  clampTick(t) { const r = this.rec; if (!r || !Number.isFinite(t)) return 0; return clamp(Math.round(t), 0, Math.max(0, r.length - 1)); }
   /** Absolute move. An echo in the world is held at that tick; otherwise the preview cursor moves. */
   scrubTo(tick, { quiet = false } = {}) {
-    const r = this.rec; if (!r || this.w.recorder) return false;
+    const r = this.rec; if (!r || this.w.recorder || !Number.isFinite(tick)) return false;
     const t = this.clampTick(tick), pb = this.pb;
     if (pb?.active) { this.w.stepHead(this.slot, t - Math.floor(pb.head)); this.cursor = null; }
-    else { const first = !this.cursor; this.cursor = { slot: this.slot, tick: t }; if (first) this.g.audio?.event('preview'); }
+    else { const first = !this.live(); this.cursor = { slot: this.slot, tick: t, rec: r }; if (first) this.g.audio?.event('preview'); }
     this.poke();
     if (!quiet) this.g.audio?.event('scrub', t / Math.max(1, r.length - 1));
     return true;
@@ -71,11 +77,11 @@ export class Instrument {
   /** What the 3D ghost should show this frame (only while a stored moment is being examined, never during playback). */
   ghost() {
     if (!this.isPreview() || !this.rec) return null;
-    const t = this.cursor.tick, pb = this.pb;
+    const t = this.live().tick, pb = this.pb;
     if (!this._near || this._nearT !== t || this._nearRec !== this.rec) {
       this._near = new Set(this.around(t, 20).map((m) => m.id)); this._nearT = t; this._nearRec = this.rec;
     }
-    return { entries: this.rec.sampleAll(t, pb?.muted), slot: this.slot, world: this.w, near: this._near };
+    return { entries: this.rec.sampleAll(t, pb?.muted, this.w.sealed), slot: this.slot, world: this.w, near: this._near };
   }
   /** Markers at (or within `win` ticks of) a tick — what is happening at the moment under inspection. */
   around(tick, win = 6) { const r = this.rec; return r ? r.markers.filter((m) => Math.abs(m.t - tick) <= win) : []; }
