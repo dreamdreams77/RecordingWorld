@@ -12,7 +12,10 @@
     "preview": "vite preview --host",
     "test": "node --test tests/*.test.js",
     "e2e": "node e2e/smoke.mjs",
-    "bench": "node tests/bench.mjs"
+    "bench": "node tests/bench.mjs",
+    "fuzz": "FUZZ_SEEDS=200 node --test tests/temporal.fuzz.test.js",
+    "soak": "node --expose-gc tests/soak.mjs",
+    "e2e:all": "for t in smoke reel touch puzzle keyboard-real settings memory adaptive audio-lifecycle; do node e2e/$t.mjs || exit 1; done"
   },
   "engines": {
     "node": ">=20"

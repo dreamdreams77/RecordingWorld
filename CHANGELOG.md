@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.1 — pre-release audit
+Found by adversarial testing (seeded fuzzing of every temporal verb, reachability analysis, real-keyboard and real-touch browser runs, leak hunting, and looking at every chapter). Full report: `docs/AUDIT.md`.
+* **Fixed (state):** a body inside an echo could be thrown through the floor and up to 30 m across the level by the collision clamp; echoes now refresh the instant their head moves (scrub/set-head/play) instead of one tick later; an object removed from the world during a recording no longer lingers in its echo forever; the ghost preview no longer shows canon-sealed history that playback refuses to create; the preview cursor can no longer outlive its recording or be poisoned by NaN.
+* **Fixed (resources):** changing chapter leaked GPU geometries, textures and render targets (1,273 geometries / 272 textures after 24 loads); scene teardown now frees everything (flat after 24 loads).
+* **Fixed (input):** a quick tap of Space or a note key that began and ended between two frames was lost (jumps dropped at low frame rates).
+* **Fixed (readability):** the six recording colours were invisible on the echoes themselves; they now tint the body and a ring at the echo's feet, with a dark under-stroke for bright backgrounds. Reversed, slowed, solo and frozen echoes now read at a glance without a label.
+* **Fixed (UI):** portrait-phone subtitle and notification feed collisions; interface text scales with the screen; sandbox editing keys no longer collide with note keys; the sandbox holds at most 60 objects.
+* **Fixed (guidance):** the Prism Hall and Blind Eye hints described scrubbing with the old controls.
+* **Added:** `tests/temporal.fuzz.test.js` (mutation-checked), `temporal.scenarios`, `instrument.invariants`, `instrument.puzzles`, `puzzle.reachability` (with a self-test), `puzzle.matrix`, `audio`, `adaptive`; `tests/soak.mjs`; browser suites `keyboard-real`, `settings`, `memory`, `audio-lifecycle`, `adaptive`, `puzzle`, `reel`.
+
 ## 1.5.0 — silver and amber
 * **Film identity.** One palette (`src/palette.js`) for everything that belongs to a recording — echoes, ghost, trails, reel, deck, frame: amber, cold silver, copper, pale gold, sage silver, faded rose. Echoes are now silver gelatin with amber at the edges and in the highlights, a 24 fps flicker and a hair of gate weave; the present is graded cool so the two read as different materials.
 * **Atmosphere.** Height-dependent fog (air pools near the floor, thins with altitude) and a slow low mist in every chapter, under each chapter's own set piece.
