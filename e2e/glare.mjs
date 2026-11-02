@@ -33,6 +33,17 @@ const out = await p.evaluate(async ({ id, sid, yaw, pitch }) => {
   const lt = (name, f, r) => { const old = f(); r(0); const m = measure(); r(old); rows.push([name, m]); };
   lt('key light 0', () => R.key.intensity, (v) => { R.key.intensity = v; }); lt('hemisphere 0', () => R.hemi.intensity, (v) => { R.hemi.intensity = v; }); lt('environment 0', () => R.scene.environmentIntensity, (v) => { R.scene.environmentIntensity = v; });
   hide('dressing group', (o) => o === R.dress);
+  if (process.env.VARIANTS) {
+    const fog = R.scene.fog, fd = fog.density, fc = fog.color.getHex();
+    const v = (name, apply, undo) => { apply(); const m = measure(); undo(); rows.push([`VARIANT ${name}`, m]); };
+    v('fog density x0.5', () => { fog.density = fd * 0.5; }, () => { fog.density = fd; });
+    v('fog density 0', () => { fog.density = 0; }, () => { fog.density = fd; });
+    v('fog colour lifted (teal 0x0c3a38)', () => { fog.color.setHex(0x0c3a38); }, () => { fog.color.setHex(fc); });
+    v('hemisphere x2', () => { R.hemi.intensity *= 2; }, () => { R.hemi.intensity /= 2; });
+    v('key light x1.5', () => { R.key.intensity *= 1.5; }, () => { R.key.intensity /= 1.5; });
+    v('environment x1.6', () => { R.scene.environmentIntensity *= 1.6; }, () => { R.scene.environmentIntensity /= 1.6; });
+    v('exposure x1.3', () => { R.sc.exposure *= 1.3; }, () => { R.sc.exposure /= 1.3; });
+  }
   const bloom = R.post?.bloom; if (bloom) { const s = bloom.strength; bloom.strength = 0; R.post.params = null; const m = measure(); bloom.strength = s; rows.push(['bloom strength forced 0 (may be re-applied per frame)', m]); }
   return rows;
 }, { id, sid, yaw: +(process.env.YAW ?? 0), pitch: +(process.env.PITCH ?? -0.12) });

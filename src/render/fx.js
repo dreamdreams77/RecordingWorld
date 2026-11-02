@@ -16,7 +16,14 @@ export class BeamFX {
   seg(i) {
     if (!this.pool[i]) {
       const cm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-      const hm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      // The halo is a soft tube, not a solid one: brightest down its middle, fading to nothing at its silhouette, and fading out as the camera
+      // comes close. A flat double-sided additive cylinder stacked two layers deep and, seen along its axis, filled the view as a white cone.
+      const hm = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+        uniforms: { uColor: { value: new THREE.Color(1, 1, 1) }, uI: { value: 0.16 } },
+        vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vP = mv.xyz; vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform vec3 uColor; uniform float uI; varying vec3 vN; varying vec3 vP; void main(){ float facing = abs(dot(normalize(vN), normalize(-vP))); float soft = pow(facing, 2.0); float near = smoothstep(0.6, 3.5, length(vP)); gl_FragColor = vec4(uColor * uI * 2.0 * soft * near, 1.0); }',
+      });
       const g = new THREE.Group(); g.add(new THREE.Mesh(this.core, cm), new THREE.Mesh(this.halo, hm));
       g.userData = { cm, hm }; this.group.add(g); this.pool[i] = g;
     }
@@ -35,8 +42,8 @@ export class BeamFX {
         g.position.set((a[0] + c[0]) / 2, (a[1] + c[1]) / 2, (a[2] + c[2]) / 2);
         g.quaternion.setFromUnitVectors(UP, new THREE.Vector3(dx / len, dy / len, dz / len));
         g.scale.set(1, len, 1);
-        g.userData.cm.color.setHex(col).multiplyScalar(2.2); g.userData.hm.color.setHex(col);
-        g.userData.hm.opacity = 0.12 + 0.05 * Math.sin(time * 18 + i);
+        g.userData.cm.color.setHex(col).multiplyScalar(1.8); g.userData.hm.uniforms.uColor.value.setHex(col);
+        g.userData.hm.uniforms.uI.value = 0.12 + 0.05 * Math.sin(time * 18 + i);
       }
     }
     for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;
