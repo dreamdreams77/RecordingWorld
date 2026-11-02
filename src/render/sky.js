@@ -96,11 +96,17 @@ export function makeEnvironment(renderer, theme, panels, fill = null) {
     scene.add(f);
   }
   for (const p of panels ?? []) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(...p.size), new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color).multiplyScalar(p.intensity) }));
+    // a real area light has no hard edge: feather each panel to nothing across its two long dimensions, so a glossy floor shows a soft glow, not a sharp white wedge
+    const half = p.size.map((v) => (v > 1 ? 2 / v : 0));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...p.size), new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color(p.color).multiplyScalar(p.intensity) }, uInv: { value: new THREE.Vector3(...half) } },
+      vertexShader: 'uniform vec3 uInv; varying vec3 vL; void main(){ vL = position * uInv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 uColor; varying vec3 vL; void main(){ vec3 a = abs(vL); float f = (1.0 - smoothstep(0.15, 1.0, a.x)) * (1.0 - smoothstep(0.15, 1.0, a.y)) * (1.0 - smoothstep(0.15, 1.0, a.z)); gl_FragColor = vec4(uColor * f, 1.0); }',
+    }));
     m.position.set(...p.pos); scene.add(m);
   }
   const pm = new THREE.PMREMGenerator(renderer);
-  const rt = pm.fromScene(scene, 0.02);
+  const rt = pm.fromScene(scene, 0.05);
   pm.dispose();
   scene.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
   rt.texture.userData.rt = rt; // the environment texture belongs to this target: dispose the target, not just the texture
