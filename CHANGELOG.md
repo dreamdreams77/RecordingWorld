@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.2 — presentation pass
+Causes were found by measurement (`e2e/glare.mjs`: clipped-pixel counts with one class of scene object switched off at a time), not by dimming.
+* **Chapter VI floor strip.** The obsidian floor had a roughness of 0.05–0.17 (a mirror) and a 1.6× environment boost, so it reproduced the baked area-light panels as hard white patches. Now polished stone (roughness ≥ 0.22, boost 1.3). Clipped pixels 3.8% → 0.8%, floor 2.2% → 0%. Same floor in Chapters I, IV, V.
+* **Chapter V beam cone.** The beam halo was a solid double-sided additive cylinder and its HDR core had no distance fade, so near the camera or along its axis a beam filled the view. The halo is now a soft tube (fades at its silhouette and within 3.5 m of the camera) and the core fades within 2.5 m. Clipped pixels 4.4% → 0.2%, floor 6.8% → 0%; beams are unchanged at normal distance.
+* **Chapter IV dimness.** Its surfaces are metallic, so the key light, hemisphere and fog barely matter (measured: ±0.003 mean luminance); they are lit by the baked environment, which was a dim sky and two small panels. The environment now has a soft teal fill. Mean luminance 0.14–0.17 → 0.19–0.22, no clipping.
+* **Endings.** Release and Hold used the same completion sound; Hold now uses the instrument's open "freeze" chord.
+* **Docs.** `docs/KNOWN_LIMITATIONS.md` rewritten (confirmed / tested only in software / never tested).
+* Not confirmed by eye: the lighting changes were verified by pixel statistics only.
+
 ## 1.5.1 — pre-release audit
 Found by adversarial testing (seeded fuzzing of every temporal verb, reachability analysis, real-keyboard and real-touch browser runs, leak hunting, and looking at every chapter). Full report: `docs/AUDIT.md`.
 * **Fixed (state):** a body inside an echo could be thrown through the floor and up to 30 m across the level by the collision clamp; echoes now refresh the instant their head moves (scrub/set-head/play) instead of one tick later; an object removed from the world during a recording no longer lingers in its echo forever; the ghost preview no longer shows canon-sealed history that playback refuses to create; the preview cursor can no longer outlive its recording or be poisoned by NaN.

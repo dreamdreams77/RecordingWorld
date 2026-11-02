@@ -84,10 +84,10 @@ export function makeSky(theme) {
 export function makeEnvironment(renderer, theme, panels, fill = null) {
   const scene = new THREE.Scene();
   const sky = makeSky(theme); sky.material.uniforms.uTime.value = 0; scene.add(sky);
-  // Optional broad, soft fill (a sky-to-ground gradient). Metallic surfaces are lit only by this map, so a chapter whose environment is a dim sky
+  // Optional broad, soft fill (radius 90: the PMREM bake only renders to 100) (a sky-to-ground gradient). Metallic surfaces are lit only by this map, so a chapter whose environment is a dim sky
   // plus two small hard panels leaves them nearly black, and brightening the panels instead burns hard reflections into glossy floors.
   if (fill) {
-    const f = new THREE.Mesh(new THREE.SphereGeometry(300, 24, 16), new THREE.ShaderMaterial({
+    const f = new THREE.Mesh(new THREE.SphereGeometry(90, 24, 16), new THREE.ShaderMaterial({
       side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: { uSky: { value: new THREE.Color(fill.sky) }, uGround: { value: new THREE.Color(fill.ground) }, uI: { value: fill.intensity } },
       vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',

@@ -15,7 +15,13 @@ export class BeamFX {
   }
   seg(i) {
     if (!this.pool[i]) {
-      const cm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+      // the core is HDR (it feeds bloom) but fades out inside ~2.5 m of the camera: a thin tube a hand's breadth from the lens otherwise fills the view
+      const cm = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+        uniforms: { uColor: { value: new THREE.Color(1, 1, 1) } },
+        vertexShader: 'varying vec3 vP; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vP = mv.xyz; gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform vec3 uColor; varying vec3 vP; void main(){ float near = smoothstep(0.5, 2.5, length(vP)); gl_FragColor = vec4(uColor * near, 1.0); }',
+      });
       // The halo is a soft tube, not a solid one: brightest down its middle, fading to nothing at its silhouette, and fading out as the camera
       // comes close. A flat double-sided additive cylinder stacked two layers deep and, seen along its axis, filled the view as a white cone.
       const hm = new THREE.ShaderMaterial({
@@ -42,7 +48,7 @@ export class BeamFX {
         g.position.set((a[0] + c[0]) / 2, (a[1] + c[1]) / 2, (a[2] + c[2]) / 2);
         g.quaternion.setFromUnitVectors(UP, new THREE.Vector3(dx / len, dy / len, dz / len));
         g.scale.set(1, len, 1);
-        g.userData.cm.color.setHex(col).multiplyScalar(1.8); g.userData.hm.uniforms.uColor.value.setHex(col);
+        g.userData.cm.uniforms.uColor.value.setHex(col).multiplyScalar(1.8); g.userData.hm.uniforms.uColor.value.setHex(col);
         g.userData.hm.uniforms.uI.value = 0.12 + 0.05 * Math.sin(time * 18 + i);
       }
     }
