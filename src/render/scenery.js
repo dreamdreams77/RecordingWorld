@@ -314,6 +314,7 @@ function acoustic(ctx) {
   g.add(rulerDecal(8, B.z0 + 2, 0, 1.0));
   return { group: g, anim, fog: fogOf(0x03100f, 0.0115), ambient: { sky: 0x1c4c52, ground: 0x050a0a, intensity: 0.55 }, key: { color: 0x9fe8e0, intensity: 2.2, dir: [0.3, 1, 0.2] },
     tint: { shadow: [0.88, 1.04, 1.08], high: [1.02, 1.06, 0.98] }, exposure: 0.98, bloom: 0.5,
+    fill: { sky: 0x4fb8b0, ground: 0x123a3a, intensity: 0.5 },
     panels: [{ size: [40, 0.5, 6], pos: [0, 30, -30], color: 0x7ff0e6, intensity: 5 }, { size: [0.5, 20, 40], pos: [-30, 10, -30], color: 0xffd9a0, intensity: 2 }] };
 }
 

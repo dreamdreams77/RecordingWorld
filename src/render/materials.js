@@ -68,7 +68,7 @@ export class MaterialLibrary {
       map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(1.1, 1.1),
       aoMap: t.orm, roughnessMap: t.orm, metalnessMap: t.orm, roughness: 1, metalness: 1, envMapIntensity: 1.0,
     });
-    if (spec.tex === 'obsidian') { m.envMapIntensity = 1.6; m.userData.floor = true; }
+    if (spec.tex === 'obsidian') { m.envMapIntensity = 1.3; m.userData.floor = true; }
     m.userData.tile = spec.tile;
     m.name = key;
     this.cache.set(key, m);

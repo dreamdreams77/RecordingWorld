@@ -104,7 +104,7 @@ export const RECIPES = {
     const sub = Math.max(periodicLine(u * 16, 0.0018), periodicLine(v * 16, 0.0018)) * 0.5;
     const g = 0.018 + n * 0.02 + fine * 0.01;
     const inlay = grid * 0.9 + sub * 0.3;
-    return { c: [g + inlay * 0.55, g + inlay * 0.42, g + inlay * 0.2], h: -grid * 0.12 + n * 0.03, r: mix(0.05 + fine * 0.12, 0.35, inlay), m: mix(0.1, 1.0, inlay) };
+    return { c: [g + inlay * 0.55, g + inlay * 0.42, g + inlay * 0.2], h: -grid * 0.12 + n * 0.03, r: mix(0.22 + fine * 0.12, 0.35, inlay), m: mix(0.1, 1.0, inlay) }; // polished stone, not a mirror: a mirror floor reproduces every bright panel in the environment map as a hard white patch
   }, 1.2),
   // brushed steel
   steel: (size, seed, tint = 0xb9bec7) => synth(size, seed, (u, v, N) => {

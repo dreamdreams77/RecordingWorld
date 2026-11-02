@@ -81,9 +81,20 @@ export function makeSky(theme) {
 }
 
 /** Environment map: sky + a few area-light panels, baked once per theme into a PMREM cube. */
-export function makeEnvironment(renderer, theme, panels) {
+export function makeEnvironment(renderer, theme, panels, fill = null) {
   const scene = new THREE.Scene();
   const sky = makeSky(theme); sky.material.uniforms.uTime.value = 0; scene.add(sky);
+  // Optional broad, soft fill (a sky-to-ground gradient). Metallic surfaces are lit only by this map, so a chapter whose environment is a dim sky
+  // plus two small hard panels leaves them nearly black, and brightening the panels instead burns hard reflections into glossy floors.
+  if (fill) {
+    const f = new THREE.Mesh(new THREE.SphereGeometry(300, 24, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uSky: { value: new THREE.Color(fill.sky) }, uGround: { value: new THREE.Color(fill.ground) }, uI: { value: fill.intensity } },
+      vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 uSky, uGround; uniform float uI; varying vec3 vD; void main(){ float k = smoothstep(-0.6, 0.8, vD.y); gl_FragColor = vec4(mix(uGround, uSky, k) * uI, 1.0); }',
+    }));
+    scene.add(f);
+  }
   for (const p of panels ?? []) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(...p.size), new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color).multiplyScalar(p.intensity) }));
     m.position.set(...p.pos); scene.add(m);

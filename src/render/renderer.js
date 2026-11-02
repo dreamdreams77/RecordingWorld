@@ -81,7 +81,7 @@ export class GameRenderer {
     this.sky = makeSky(this.theme); this.scene.add(this.sky);
     this.baseHorizon = this.sky.material.uniforms.uHorizon.value.clone(); this.baseZenith = this.sky.material.uniforms.uZenith.value.clone(); this.baseFrozen = this.sky.material.uniforms.uFrozen.value;
     this.emulsion = 0; this.sunrise = 0;
-    this.env = makeEnvironment(this.renderer, this.theme, this.sc.panels);
+    this.env = makeEnvironment(this.renderer, this.theme, this.sc.panels, this.sc.fill);
     this.scene.environment = this.env; this.scene.environmentIntensity = 0.9;
     this.scene.fog = new THREE.FogExp2(this.sc.fog.color, this.sc.fog.density);
     this.scene.background = null;
