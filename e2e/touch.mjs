@@ -32,7 +32,7 @@ const btn = (t) => p.locator(`#touch .tb:has-text("${t}")`).first();
 await p.evaluate(() => { window.__game.pitch = -1.2; });
 await btn('FRAME').tap();
 check('FRAME button enters frame mode', await until(() => window.__game.frameMode));
-await touch('touchStart', [[vp.width * 0.7, vp.height * 0.5]]); await touch('touchEnd', []);
+await Promise.all([touch('touchStart', [[vp.width * 0.7, vp.height * 0.5]]), touch('touchEnd', [])]); // a real tap's down and up are milliseconds apart; the game counts a tap under 350 ms
 check('tapping the view pins the volume', await until(() => !!window.__game.pinned));
 await btn('REC').tap();
 check('REC button starts a recording', await until(() => !!window.__game.world.recorder));

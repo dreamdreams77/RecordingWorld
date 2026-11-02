@@ -16,6 +16,10 @@ The pre-release audit (`docs/AUDIT.md`) describes how the automated side was che
 * **Real mouse pointer-lock** in a user-driven session (tests drive input through the game's own input layer and real keyboard events, not a physical mouse).
 * **The deployed site.** The Pages workflow succeeds; the live page has not been opened by anything that could report what it shows.
 
+## Test-suite caveats
+* `e2e/keyboard-real.mjs` measures real wall-clock behaviour (records for ~0.9 s, holds a key for 1.2 s). On a CPU-starved machine (several software-rendered browsers at once) the game deliberately slows simulation time, and its "recording has real length" and "holding . accelerates" checks fail. They pass 25/25 when run alone. Run the browser suites one at a time.
+* `e2e/touch.mjs` "tapping the view pins the volume" depends on the down and up events arriving within the game's 350 ms tap window; the harness now sends them together.
+
 ## Tested only in software
 * **Audio.** Every instrument cue is rendered offline through the real engine and measured: one scale (D minor pentatonic), sine/triangle plus band-passed hiss only, loudness within about 2 dB across cues, no clipping, none silent, cues dropped while paused, voices released on chapter change. That proves consistency, not quality.
 * **Visuals.** Chapters were inspected in screenshots from software rendering at low/medium quality, at 360×640, 412×915, 800×450, 1280×720 and 1920×1080 for the UI.
