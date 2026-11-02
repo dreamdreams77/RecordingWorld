@@ -312,7 +312,8 @@ export class Game {
     this.progress.ending = kind; this.progress.sandbox = true;
     const r = levelRecord(this.progress, this.level.id); r.done = true; saveProgress(this.progress);
     this.hud.say(kind === 'release' ? 'The playhead lifts. The first thing the present does is move.' : 'The frame holds. The last day begins again, and you are in it.', 'THE ARCHIVIST', 8000);
-    this.audio?.event('complete');
+    // the two endings must not sound alike: Release resolves (the rising completion chord), Hold is the instrument's own "freeze" — an open chord that rings on and never resolves
+    this.audio?.event(kind === 'release' ? 'complete' : 'freeze');
   }
 
   // ------------------------------------------------------------------ per-frame control
