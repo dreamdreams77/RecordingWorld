@@ -6,7 +6,7 @@ const id = process.env.CH ?? 'ch6', sid = process.env.SEC ?? 'a';
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
 const p = await b.newPage({ viewport: { width: 640, height: 360 } });
 await p.goto(`http://localhost:4173/?quality=medium&audio=0`); await p.waitForFunction(() => window.__game?.state === 'title', null, { timeout: 90000 });
-const out = await p.evaluate(async ({ id, sid, yaw, pitch }) => {
+const out = await p.evaluate(async ({ id, sid, yaw, pitch, variants }) => {
   const g = window.__game; g.testNoRender = true; await g.startLevel(id); g.menus.hide(); g.hud.layer.style.display = 'none'; document.querySelector('.titlecard')?.remove();
   const w = g.world, s = w.level.sections.find((x) => x.id === sid), c = s.checkpoint, IDLE = { mx: 0, mz: 0, jump: false, interact: false, tone: 0, yaw: 0, pitch: 0, slot: 0 };
   g.testHold = true; w.teleportPlayer(c.pos, c.yaw ?? 0); for (let k = 0; k < 6; k++) w.step(IDLE); g.yaw = yaw; g.pitch = pitch; g.cur.set(w.player.st); g.prev.set(w.player.st);
@@ -33,7 +33,7 @@ const out = await p.evaluate(async ({ id, sid, yaw, pitch }) => {
   const lt = (name, f, r) => { const old = f(); r(0); const m = measure(); r(old); rows.push([name, m]); };
   lt('key light 0', () => R.key.intensity, (v) => { R.key.intensity = v; }); lt('hemisphere 0', () => R.hemi.intensity, (v) => { R.hemi.intensity = v; }); lt('environment 0', () => R.scene.environmentIntensity, (v) => { R.scene.environmentIntensity = v; });
   hide('dressing group', (o) => o === R.dress);
-  if (process.env.VARIANTS) {
+  if (variants) {
     const fog = R.scene.fog, fd = fog.density, fc = fog.color.getHex();
     const v = (name, apply, undo) => { apply(); const m = measure(); undo(); rows.push([`VARIANT ${name}`, m]); };
     v('fog density x0.5', () => { fog.density = fd * 0.5; }, () => { fog.density = fd; });
@@ -46,6 +46,6 @@ const out = await p.evaluate(async ({ id, sid, yaw, pitch }) => {
   }
   const bloom = R.post?.bloom; if (bloom) { const s = bloom.strength; bloom.strength = 0; R.post.params = null; const m = measure(); bloom.strength = s; rows.push(['bloom strength forced 0 (may be re-applied per frame)', m]); }
   return rows;
-}, { id, sid, yaw: +(process.env.YAW ?? 0), pitch: +(process.env.PITCH ?? -0.12) });
+}, { id, sid, yaw: +(process.env.YAW ?? 0), pitch: +(process.env.PITCH ?? -0.12), variants: !!process.env.VARIANTS });
 console.log(`${id}/${sid}`); for (const [n, m] of out) console.log(n.padEnd(58), JSON.stringify(m));
 await b.close();
