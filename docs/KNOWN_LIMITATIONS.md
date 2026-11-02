@@ -27,7 +27,9 @@ The pre-release audit (`docs/AUDIT.md`) describes how the automated side was che
 
 ## Confirmed limitations
 ### Visual
-* Chapter VI has a very bright floor strip, Chapter V a very bright beam cone, and Chapter IV is dim. These were reported by the audit and are being addressed in the presentation pass; check `CHANGELOG.md` for whether a fix has landed and has been confirmed by eye.
+* The three audit defects (Chapter VI floor strip, Chapter V beam cone, Chapter IV dimness) were fixed in 1.5.2 and checked by pixel statistics **and by eye at each chapter's first section** (Chapters IV, V, VI; software-rendered, 960×540). Other rooms, echo scenes, and Chapters I–III after the floor change were not re-inspected by eye.
+* Floors in Chapters I, IV, V and VI are glossy and show reflections of the hall; this is intended, but on a real GPU with different filtering the reflections could look sharper than in these captures.
+* Chapter VI is noticeably brighter than the others (mean luminance about 0.42 against 0.15–0.31); it is meant to be the amber finale, but nobody has judged whether it is too much.
 
 ### Simulation and physics
 * Physics is AABB-based: no rotated or rolling bodies. Mirrors reflect only on the horizontal plane at 45°.
